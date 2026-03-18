@@ -1,0 +1,12 @@
+frontend-src/node_modules/
+frontend-src/.vite/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+.DS_Store
+
+database/*.db
+database/*.db-shm
+database/*.db-wal

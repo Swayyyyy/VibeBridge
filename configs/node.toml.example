@@ -1,0 +1,39 @@
+# Node Server runtime config.
+
+[server]
+host = "0.0.0.0"
+port = 4456
+
+[database]
+path = "database/auth.db"
+
+[auth]
+platform_mode = false
+jwt_secret = ""
+
+[node]
+main_server_url = "ws://127.0.0.1:4457/ws/node"
+main_register_url = ""
+id = ""
+name = ""
+register_token = ""
+labels = []
+capabilities = ["claude", "codex"]
+# Optional public address override for when Main should route back to this Node
+# via a different host/port than the Node process sees locally.
+advertise_host = ""
+advertise_port = 0
+
+[filesystem]
+file_tree_max_nodes = 2500
+file_tree_max_depth = 6
+
+[terminal]
+default_shell = "/bin/bash"
+
+[providers.claude]
+tool_approval_timeout_ms = 55000
+context_window = 160000
+
+[providers.codex]
+tool_approval_timeout_ms = 55000

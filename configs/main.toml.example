@@ -1,0 +1,16 @@
+# Main Server runtime config.
+
+[server]
+host = "0.0.0.0"
+port = 4457
+
+[database]
+path = "database/auth.db"
+
+[auth]
+platform_mode = false
+jwt_secret = ""
+
+[main]
+node_register_tokens = []
+node_addresses = []
