@@ -18,6 +18,8 @@ import type {
   ChatMessage,
   PendingPermissionRequest,
   PermissionMode,
+  QueuedPromptItem,
+  QueuedPromptMode,
 } from '../types/types';
 import type { Project, ProjectSession, SessionProvider } from '../../../types/app';
 import { escapeRegExp } from '../utils/chatFormatting';
@@ -75,6 +77,16 @@ interface CommandExecutionResult {
   hasFileIncludes?: boolean;
 }
 
+interface QueuedPrompt extends QueuedPromptItem {
+  prompt: string;
+  attachedImages: File[];
+}
+
+const createClientMessageId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `message-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 const createFakeSubmitEvent = () => {
   return { preventDefault: () => undefined } as unknown as FormEvent<HTMLFormElement>;
 };
@@ -131,6 +143,7 @@ export function useChatComposerState({
   const [uploadingImages, setUploadingImages] = useState<Map<string, number>>(new Map());
   const [imageErrors, setImageErrors] = useState<Map<string, string>>(new Map());
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
+  const [queuedPrompts, setQueuedPrompts] = useState<QueuedPrompt[]>([]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputHighlightRef = useRef<HTMLDivElement>(null);
@@ -138,6 +151,8 @@ export function useChatComposerState({
     ((event: FormEvent<HTMLFormElement> | MouseEvent | TouchEvent | KeyboardEvent<HTMLTextAreaElement>) => Promise<void>) | null
   >(null);
   const inputValueRef = useRef(input);
+  const queuedPromptDispatchRef = useRef<string | null>(null);
+  const supportsLiveTurnControl = provider === 'codex' || provider === 'claude';
 
   const queuePromptSubmission = useCallback((prompt: string) => {
     setInput(prompt);
@@ -150,6 +165,22 @@ export function useChatComposerState({
       }
     }, 0);
   }, []);
+
+  const resolveAbortTargetSessionId = useCallback(() => {
+    const pendingSessionId =
+      typeof window !== 'undefined' ? sessionStorage.getItem('pendingSessionId') : null;
+
+    const candidateSessionIds = [
+      currentSessionId,
+      pendingViewSessionRef.current?.sessionId || null,
+      pendingSessionId,
+      selectedSession?.id || null,
+    ];
+
+    return (
+      candidateSessionIds.find((sessionId) => Boolean(sessionId) && !isTemporarySessionId(sessionId)) || null
+    );
+  }, [currentSessionId, pendingViewSessionRef, selectedSession?.id]);
 
   const handleBuiltInCommand = useCallback(
     (result: CommandExecutionResult): boolean => {
@@ -438,6 +469,24 @@ export function useChatComposerState({
     textareaRef,
   });
 
+  const clearComposerState = useCallback(() => {
+    setInput('');
+    inputValueRef.current = '';
+    resetCommandMenuState();
+    setAttachedImages([]);
+    setUploadingImages(new Map());
+    setImageErrors(new Map());
+    setIsTextareaExpanded(false);
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    if (selectedProject) {
+      safeLocalStorage.removeItem(getDraftStorageKey(selectedProject));
+    }
+  }, [resetCommandMenuState, selectedProject]);
+
   const syncInputOverlayScroll = useCallback((target: HTMLTextAreaElement) => {
     if (!inputHighlightRef.current || !target) {
       return;
@@ -516,18 +565,17 @@ export function useChatComposerState({
     noKeyboard: true,
   });
 
-  const handleSubmit = useCallback(
+  const submitPrompt = useCallback(
     async (
-      event: FormEvent<HTMLFormElement> | MouseEvent | TouchEvent | KeyboardEvent<HTMLTextAreaElement>,
-    ) => {
-      event.preventDefault();
-      const currentInput = inputValueRef.current;
-      if (!currentInput.trim() || isLoading || !selectedProject) {
-        return;
+      promptText: string,
+      promptImages: File[],
+      options: { allowWhileLoading?: boolean; skipUserMessageAppend?: boolean } = {},
+    ): Promise<boolean> => {
+      if (!promptText.trim() || ((!options.allowWhileLoading && isLoading) || !selectedProject)) {
+        return false;
       }
 
-      // Intercept slash commands: if input starts with /commandName, execute as command with args
-      const trimmedInput = currentInput.trim();
+      const trimmedInput = promptText.trim();
       if (trimmedInput.startsWith('/')) {
         const firstSpace = trimmedInput.indexOf(' ');
         const commandName = firstSpace > 0 ? trimmedInput.slice(0, firstSpace) : trimmedInput;
@@ -535,27 +583,16 @@ export function useChatComposerState({
         if (matchedCommand) {
           const shouldClearComposer = await executeCommand(matchedCommand, trimmedInput);
           if (shouldClearComposer) {
-            setInput('');
-            inputValueRef.current = '';
-            setAttachedImages([]);
-            setUploadingImages(new Map());
-            setImageErrors(new Map());
+            clearComposerState();
           }
-          resetCommandMenuState();
-          if (shouldClearComposer) {
-            setIsTextareaExpanded(false);
-            if (textareaRef.current) {
-              textareaRef.current.style.height = 'auto';
-            }
-          }
-          return;
+          return true;
         }
       }
 
       let uploadedImages: unknown[] = [];
-      if (attachedImages.length > 0) {
+      if (promptImages.length > 0) {
         const formData = new FormData();
-        attachedImages.forEach((file) => {
+        promptImages.forEach((file) => {
           formData.append('images', file);
         });
 
@@ -583,19 +620,24 @@ export function useChatComposerState({
               timestamp: new Date(),
             },
           ]);
-          return;
+          return false;
         }
       }
 
-      const userMessage: ChatMessage = {
-        type: 'user',
-        content: currentInput,
-        images: uploadedImages as any,
-        timestamp: new Date(),
-      };
+      if (!options.skipUserMessageAppend) {
+        const messageId = createClientMessageId();
+        const userMessage: ChatMessage = {
+          id: messageId,
+          messageId,
+          type: 'user',
+          content: promptText,
+          images: uploadedImages as any,
+          timestamp: new Date(),
+        };
 
-      setChatMessages((previous) => [...previous, userMessage]);
-      setIsLoading(true); // Processing banner starts
+        setChatMessages((previous) => [...previous, userMessage]);
+      }
+      setIsLoading(true);
       setCanAbortSession(true);
       setClaudeStatus({
         text: 'Processing',
@@ -606,13 +648,11 @@ export function useChatComposerState({
       setIsUserScrolledUp(false);
       setTimeout(() => scrollToBottom(), 100);
 
-      const effectiveSessionId =
-        currentSessionId || selectedSession?.id;
+      const effectiveSessionId = currentSessionId || selectedSession?.id;
       const sessionToActivate = effectiveSessionId || `new-session-${Date.now()}`;
 
       if (!effectiveSessionId && !selectedSession?.id) {
         if (typeof window !== 'undefined') {
-          // Reset stale pending IDs from previous interrupted runs before creating a new one.
           sessionStorage.removeItem('pendingSessionId');
         }
         pendingViewSessionRef.current = { sessionId: null, startedAt: Date.now() };
@@ -653,7 +693,7 @@ export function useChatComposerState({
         };
         sendMessage({
           type: 'codex-command',
-          command: currentInput,
+          command: promptText,
           sessionId: effectiveSessionId,
           options: {
             cwd: resolvedProjectPath,
@@ -674,7 +714,7 @@ export function useChatComposerState({
         };
         sendMessage({
           type: 'claude-command',
-          command: currentInput,
+          command: promptText,
           options: {
             projectPath: resolvedProjectPath,
             cwd: resolvedProjectPath,
@@ -689,24 +729,13 @@ export function useChatComposerState({
         });
       }
 
-      setInput('');
-      inputValueRef.current = '';
-      resetCommandMenuState();
-      setAttachedImages([]);
-      setUploadingImages(new Map());
-      setImageErrors(new Map());
-      setIsTextareaExpanded(false);
-
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-
-      safeLocalStorage.removeItem(getDraftStorageKey(selectedProject));
+      clearComposerState();
+      return true;
     },
     [
-      attachedImages,
       claudeModel,
       claudeThinkingEffort,
+      clearComposerState,
       codexModel,
       codexReasoningEffort,
       currentSessionId,
@@ -717,7 +746,6 @@ export function useChatComposerState({
       pendingViewSessionRef,
       permissionMode,
       provider,
-      resetCommandMenuState,
       scrollToBottom,
       selectedProject,
       selectedSession?.id,
@@ -729,6 +757,264 @@ export function useChatComposerState({
       setIsUserScrolledUp,
       slashCommands,
     ],
+  );
+
+  const enqueueCurrentLivePrompt = useCallback(
+    (mode: QueuedPromptMode) => {
+      if (!supportsLiveTurnControl || !selectedProject) {
+        return false;
+      }
+
+      const promptText = inputValueRef.current.trim();
+      if (!promptText) {
+        return false;
+      }
+
+      const targetSessionId =
+        currentSessionId || pendingViewSessionRef.current?.sessionId || selectedSession?.id || null;
+      const queueItem: QueuedPrompt = {
+        id:
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `queued-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        prompt: promptText,
+        attachedImages: [...attachedImages],
+        provider,
+        projectName: selectedProject.name,
+        nodeId: selectedProject.nodeId || null,
+        targetSessionId,
+        mode,
+        state: 'queued',
+        queuedAt: Date.now(),
+      };
+
+      setQueuedPrompts((previous) => (mode === 'guide' ? [queueItem, ...previous] : [...previous, queueItem]));
+      clearComposerState();
+      setTimeout(() => scrollToBottom(), 100);
+
+      if (mode === 'guide') {
+        const abortTarget = resolveAbortTargetSessionId();
+        if (abortTarget && canAbortSession) {
+          sendMessage({
+            type: 'abort-session',
+            sessionId: abortTarget,
+            provider,
+          });
+        }
+      }
+
+      return true;
+    },
+    [
+      attachedImages,
+      canAbortSession,
+      clearComposerState,
+      currentSessionId,
+      pendingViewSessionRef,
+      provider,
+      resolveAbortTargetSessionId,
+      scrollToBottom,
+      selectedProject,
+      selectedSession?.id,
+      sendMessage,
+      supportsLiveTurnControl,
+    ],
+  );
+
+  const matchesQueuedPromptContext = useCallback(
+    (queueItem: QueuedPrompt) => {
+      if (!selectedProject) {
+        return false;
+      }
+
+      const currentNodeId = selectedProject.nodeId || null;
+      if (
+        queueItem.provider !== provider ||
+        queueItem.projectName !== selectedProject.name ||
+        queueItem.nodeId !== currentNodeId
+      ) {
+        return false;
+      }
+
+      const pendingSessionId =
+        typeof window !== 'undefined' ? sessionStorage.getItem('pendingSessionId') : null;
+      const candidateSessionIds = [
+        currentSessionId,
+        pendingViewSessionRef.current?.sessionId || null,
+        pendingSessionId,
+        selectedSession?.id || null,
+      ].filter((sessionId): sessionId is string => Boolean(sessionId));
+
+      const stableTargetSessionId =
+        queueItem.targetSessionId && !isTemporarySessionId(queueItem.targetSessionId)
+          ? queueItem.targetSessionId
+          : null;
+
+      if (stableTargetSessionId) {
+        return candidateSessionIds.includes(stableTargetSessionId);
+      }
+
+      return candidateSessionIds.length === 0 || candidateSessionIds.some((sessionId) => isTemporarySessionId(sessionId));
+    },
+    [currentSessionId, pendingViewSessionRef, provider, selectedProject, selectedSession?.id],
+  );
+
+  useEffect(() => {
+    if (!selectedProject) {
+      return;
+    }
+
+    const stableSessionId = [currentSessionId, selectedSession?.id || null].find(
+      (sessionId): sessionId is string => Boolean(sessionId) && !isTemporarySessionId(sessionId),
+    );
+    if (!stableSessionId) {
+      return;
+    }
+
+    const currentNodeId = selectedProject.nodeId || null;
+    setQueuedPrompts((previous) => {
+      let changed = false;
+      const next = previous.map((queueItem) => {
+        if (
+          queueItem.provider !== provider ||
+          queueItem.projectName !== selectedProject.name ||
+          queueItem.nodeId !== currentNodeId
+        ) {
+          return queueItem;
+        }
+
+        if (queueItem.targetSessionId && !isTemporarySessionId(queueItem.targetSessionId)) {
+          return queueItem;
+        }
+
+        changed = true;
+        return { ...queueItem, targetSessionId: stableSessionId };
+      });
+
+      return changed ? next : previous;
+    });
+  }, [currentSessionId, provider, selectedProject, selectedSession?.id]);
+
+  const dispatchQueuedPrompt = useCallback(async () => {
+    if (isLoading || queuedPromptDispatchRef.current) {
+      return;
+    }
+
+    const nextQueuedPrompt = queuedPrompts.find(
+      (queueItem) => queueItem.state === 'queued' && matchesQueuedPromptContext(queueItem),
+    );
+    if (!nextQueuedPrompt) {
+      return;
+    }
+
+    queuedPromptDispatchRef.current = nextQueuedPrompt.id;
+    setQueuedPrompts((previous) =>
+      previous.map((queueItem) =>
+        queueItem.id === nextQueuedPrompt.id ? { ...queueItem, state: 'dispatching' } : queueItem,
+      ),
+    );
+
+    try {
+      const submitted = await submitPrompt(nextQueuedPrompt.prompt, nextQueuedPrompt.attachedImages, {
+        allowWhileLoading: true,
+      });
+      if (submitted) {
+        setQueuedPrompts((previous) => previous.filter((queueItem) => queueItem.id !== nextQueuedPrompt.id));
+      } else {
+        setQueuedPrompts((previous) =>
+          previous.map((queueItem) =>
+            queueItem.id === nextQueuedPrompt.id ? { ...queueItem, state: 'queued' } : queueItem,
+          ),
+        );
+      }
+    } finally {
+      queuedPromptDispatchRef.current = null;
+    }
+  }, [isLoading, matchesQueuedPromptContext, queuedPrompts, setChatMessages, submitPrompt]);
+
+  useEffect(() => {
+    void dispatchQueuedPrompt();
+  }, [dispatchQueuedPrompt]);
+
+  const handleGuideQueuedPrompt = useCallback(
+    (queuePromptId: string) => {
+      const targetPrompt = queuedPrompts.find(
+        (queueItem) => queueItem.id === queuePromptId && queueItem.state === 'queued',
+      );
+      if (!targetPrompt) {
+        return;
+      }
+
+      setQueuedPrompts((previous) => {
+        const prioritizedPrompt = { ...targetPrompt, mode: 'guide' as const };
+        return [
+          prioritizedPrompt,
+          ...previous.filter((queueItem) => queueItem.id !== queuePromptId),
+        ];
+      });
+
+      if (!isLoading || !canAbortSession) {
+        return;
+      }
+
+      const abortTarget = resolveAbortTargetSessionId();
+      if (!abortTarget) {
+        return;
+      }
+
+      sendMessage({
+        type: 'abort-session',
+        sessionId: abortTarget,
+        provider,
+      });
+    },
+    [canAbortSession, isLoading, provider, queuedPrompts, resolveAbortTargetSessionId, sendMessage],
+  );
+
+  const handleCancelQueuedPrompt = useCallback(
+    (queuePromptId: string) => {
+      setQueuedPrompts((previous) => previous.filter((queueItem) => queueItem.id !== queuePromptId));
+    },
+    [],
+  );
+
+  const handleEditQueuedPrompt = useCallback(
+    (queuePromptId: string) => {
+      const queueItemToEdit = queuedPrompts.find(
+        (queueItem) => queueItem.id === queuePromptId && queueItem.state === 'queued',
+      );
+
+      if (!queueItemToEdit) {
+        return;
+      }
+
+      setQueuedPrompts((previous) => previous.filter((queueItem) => queueItem.id !== queuePromptId));
+      setInput(queueItemToEdit.prompt);
+      inputValueRef.current = queueItemToEdit.prompt;
+      setAttachedImages([...queueItemToEdit.attachedImages]);
+
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        scrollToBottom();
+      }, 0);
+    },
+    [queuedPrompts, scrollToBottom, textareaRef],
+  );
+
+  const handleSubmit = useCallback(
+    async (
+      event: FormEvent<HTMLFormElement> | MouseEvent | TouchEvent | KeyboardEvent<HTMLTextAreaElement>,
+    ) => {
+      event.preventDefault();
+
+      if (supportsLiveTurnControl && isLoading) {
+        enqueueCurrentLivePrompt('queue');
+        return;
+      }
+
+      await submitPrompt(inputValueRef.current, attachedImages);
+    },
+    [attachedImages, enqueueCurrentLivePrompt, isLoading, submitPrompt, supportsLiveTurnControl],
   );
 
   useEffect(() => {
@@ -880,19 +1166,7 @@ export function useChatComposerState({
     if (!canAbortSession) {
       return;
     }
-
-    const pendingSessionId =
-      typeof window !== 'undefined' ? sessionStorage.getItem('pendingSessionId') : null;
-
-    const candidateSessionIds = [
-      currentSessionId,
-      pendingViewSessionRef.current?.sessionId || null,
-      pendingSessionId,
-      selectedSession?.id || null,
-    ];
-
-    const targetSessionId =
-      candidateSessionIds.find((sessionId) => Boolean(sessionId) && !isTemporarySessionId(sessionId)) || null;
+    const targetSessionId = resolveAbortTargetSessionId();
 
     if (!targetSessionId) {
       console.warn('Abort requested but no concrete session ID is available yet.');
@@ -904,7 +1178,7 @@ export function useChatComposerState({
       sessionId: targetSessionId,
       provider,
     });
-  }, [canAbortSession, currentSessionId, pendingViewSessionRef, provider, selectedSession?.id, sendMessage]);
+  }, [canAbortSession, provider, resolveAbortTargetSessionId, sendMessage]);
 
   const handleTranscript = useCallback((text: string) => {
     if (!text.trim()) {
@@ -975,6 +1249,9 @@ export function useChatComposerState({
   );
 
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const visibleQueuedPrompts = queuedPrompts.filter(
+    (queueItem) => queueItem.state === 'queued' && matchesQueuedPromptContext(queueItem),
+  );
 
   const handleInputFocusChange = useCallback(
     (focused: boolean) => {
@@ -1012,7 +1289,11 @@ export function useChatComposerState({
     getInputProps,
     isDragActive,
     openImagePicker: open,
+    visibleQueuedPrompts,
     handleSubmit,
+    handleGuideQueuedPrompt,
+    handleCancelQueuedPrompt,
+    handleEditQueuedPrompt,
     handleInputChange,
     handleKeyDown,
     handlePaste,

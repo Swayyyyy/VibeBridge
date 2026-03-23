@@ -151,7 +151,11 @@ function ChatInterface({
     getInputProps,
     isDragActive,
     openImagePicker,
+    visibleQueuedPrompts,
     handleSubmit,
+    handleGuideQueuedPrompt,
+    handleCancelQueuedPrompt,
+    handleEditQueuedPrompt,
     handleInputChange,
     handleKeyDown,
     handlePaste,
@@ -198,9 +202,8 @@ function ChatInterface({
   });
 
   // On WebSocket reconnect, re-fetch the current session's messages from JSONL so missed
-  // streaming events (e.g. from long tool calls while iOS had the tab backgrounded) are shown.
-  // Also reset isLoading — if the server restarted or the session died mid-stream, the client
-  // would be stuck in "Processing..." forever without this reset.
+  // streaming events are shown, then explicitly ask the backend whether the selected
+  // session is still active so live streaming can resume on the refreshed socket.
   const handleWebSocketReconnect = useCallback(async () => {
     if (!selectedProject || !selectedSession) return;
     const provider =
@@ -211,11 +214,17 @@ function ChatInterface({
     if (messages && messages.length > 0) {
       setSessionMessages(messages);
     }
-    // Reset loading state — if the session is still active, new WebSocket messages will
-    // set it back to true. If it died, this clears the permanent frozen state.
-    setIsLoading(false);
-    setCanAbortSession(false);
-  }, [selectedProject, selectedSession, loadSessionMessages, setSessionMessages, setIsLoading, setCanAbortSession]);
+    sendMessage({
+      type: 'check-session-status',
+      sessionId: selectedSession.id,
+      provider,
+    });
+    sendMessage({
+      type: 'get-pending-permissions',
+      sessionId: selectedSession.id,
+      provider,
+    });
+  }, [selectedProject, selectedSession, loadSessionMessages, setSessionMessages, sendMessage]);
 
   useChatRealtimeHandlers({
     latestMessage,
@@ -368,6 +377,10 @@ function ChatInterface({
           }
           uploadingImages={uploadingImages}
           imageErrors={imageErrors}
+          queuedPrompts={visibleQueuedPrompts}
+          onGuideQueuedPrompt={handleGuideQueuedPrompt}
+          onCancelQueuedPrompt={handleCancelQueuedPrompt}
+          onEditQueuedPrompt={handleEditQueuedPrompt}
           showFileDropdown={showFileDropdown}
           filteredFiles={filteredFiles}
           selectedFileIndex={selectedFileIndex}

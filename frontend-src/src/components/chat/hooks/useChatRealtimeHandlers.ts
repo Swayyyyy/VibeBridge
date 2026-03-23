@@ -106,6 +106,105 @@ const scheduleSessionMetadataRefresh = (
   }, delayMs);
 };
 
+const normalizeCodexCommandToolInput = (command: unknown, cwd?: unknown) => {
+  if (typeof command === 'string') {
+    const trimmed = command.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const payload: Record<string, unknown> = { command: trimmed };
+    if (typeof cwd === 'string' && cwd.trim()) {
+      payload.cwd = cwd.trim();
+    }
+    return payload;
+  }
+
+  if (Array.isArray(command)) {
+    const joined = command
+      .filter((part) => part !== null && part !== undefined)
+      .map((part) => String(part).trim())
+      .filter(Boolean)
+      .join(' ');
+
+    if (!joined) {
+      return null;
+    }
+
+    const payload: Record<string, unknown> = { command: joined };
+    if (typeof cwd === 'string' && cwd.trim()) {
+      payload.cwd = cwd.trim();
+    }
+    return payload;
+  }
+
+  if (command && typeof command === 'object') {
+    return command;
+  }
+
+  if (command === null || command === undefined) {
+    return null;
+  }
+
+  return { command: String(command) };
+};
+
+const normalizeCodexCommandToolResult = (output: unknown, exitCode: unknown) => {
+  if (output === null || output === undefined || output === '') {
+    return null;
+  }
+
+  const normalizedOutput = typeof output === 'string'
+    ? output
+    : JSON.stringify(output, null, 2);
+
+  return {
+    content: normalizedOutput,
+    isError: typeof exitCode === 'number' ? exitCode !== 0 : false,
+  };
+};
+
+const appendCompactionStatus = (
+  setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>,
+  status: 'compacting' | 'compacted',
+  summary?: unknown,
+) => {
+  const normalizedSummary =
+    typeof summary === 'string' ? decodeHtmlEntities(summary) : '';
+
+  setChatMessages((previous) => {
+    const updated = [...previous];
+    const lastIndex = updated.length - 1;
+    const last = updated[lastIndex];
+
+    if (last?.isCompactionStatus && last.compactionState === status) {
+      if (
+        status === 'compacted' &&
+        normalizedSummary &&
+        last.compactionSummary !== normalizedSummary
+      ) {
+        updated[lastIndex] = {
+          ...last,
+          content: normalizedSummary,
+          compactionSummary: normalizedSummary,
+        };
+        return updated;
+      }
+      return previous;
+    }
+
+    updated.push({
+      type: 'assistant',
+      content: normalizedSummary,
+      timestamp: new Date(),
+      isCompactionStatus: true,
+      compactionState: status,
+      compactionSummary: normalizedSummary || undefined,
+    });
+    return updated;
+  });
+};
+
 const getClaudeContentPartType = (part: unknown): string | null => {
   if (!part || typeof part !== 'object') {
     return null;
@@ -730,7 +829,16 @@ export function useChatRealtimeHandlers({
               break;
 
             case 'command_execution':
-              if (codexData.command) {
+              {
+                const toolInput = normalizeCodexCommandToolInput(
+                  codexData.command ?? codexData.parsedCommand,
+                  codexData.cwd ?? codexData.workdir,
+                );
+
+                if (!toolInput) {
+                  break;
+                }
+
                 setChatMessages((previous) => [
                   ...previous,
                   {
@@ -739,8 +847,11 @@ export function useChatRealtimeHandlers({
                     timestamp: new Date(),
                     isToolUse: true,
                     toolName: 'Bash',
-                    toolInput: codexData.command,
-                    toolResult: codexData.output || null,
+                    toolInput,
+                    toolResult: normalizeCodexCommandToolResult(
+                      codexData.output,
+                      codexData.exitCode,
+                    ),
                     exitCode: codexData.exitCode,
                   },
                 ]);
@@ -768,6 +879,14 @@ export function useChatRealtimeHandlers({
                   },
                 ]);
               }
+              break;
+
+            case 'compaction_status':
+              appendCompactionStatus(
+                setChatMessages,
+                codexData.status === 'compacting' ? 'compacting' : 'compacted',
+                codexData.summary ?? codexData.message?.content ?? codexData.content,
+              );
               break;
 
             case 'mcp_tool_call':

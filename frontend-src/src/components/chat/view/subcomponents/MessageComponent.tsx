@@ -32,6 +32,7 @@ type MessageComponentProps = {
   showThinking?: boolean;
   selectedProject?: Project | null;
   provider: Provider | string;
+  embeddedInBatch?: boolean;
 };
 
 type InteractiveOption = {
@@ -43,13 +44,13 @@ type InteractiveOption = {
 type PermissionGrantState = 'idle' | 'granted' | 'error';
 const COPY_HIDDEN_TOOL_NAMES = new Set(['Bash', 'Edit', 'Write', 'ApplyPatch']);
 
-const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }: MessageComponentProps) => {
+const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider, embeddedInBatch = false }: MessageComponentProps) => {
   const { t } = useTranslation('chat');
   const isGrouped = prevMessage && prevMessage.type === message.type &&
     ((prevMessage.type === 'assistant') ||
-      (prevMessage.type === 'user') ||
       (prevMessage.type === 'tool') ||
       (prevMessage.type === 'error'));
+  const isEmbeddedBatchMessage = embeddedInBatch && message.type !== 'user';
   const messageRef = useRef<HTMLDivElement | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const permissionSuggestion = getClaudePermissionSuggestion(message, provider);
@@ -112,7 +113,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, o
     <div
       ref={messageRef}
       data-message-timestamp={message.timestamp || undefined}
-      className={`chat-message ${message.type} ${isGrouped ? 'grouped' : ''} ${message.type === 'user' ? 'flex justify-end px-3 sm:px-0' : 'px-3 sm:px-0'}`}
+      className={`chat-message ${message.type} ${isGrouped ? 'grouped' : ''} ${isEmbeddedBatchMessage ? '' : message.type === 'user' ? 'flex justify-end px-3 sm:px-0' : 'px-3 sm:px-0'}`}
     >
       {message.type === 'user' ? (
         /* User message bubble on the right */
@@ -158,7 +159,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, o
       ) : (
         /* Claude/Error/Tool messages on the left */
         <div className="w-full">
-          {!isGrouped && (
+          {!isGrouped && !isEmbeddedBatchMessage && (
             <div className="mb-2 flex items-center space-x-3">
               {message.type === 'error' ? (
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-600 text-sm text-white">
@@ -185,7 +186,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, o
             </div>
           )}
 
-          <div className="w-full">
+            <div className="w-full">
 
             {message.isToolUse ? (
               <>
@@ -302,6 +303,42 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, o
                   )
                 )}
               </>
+            ) : message.isCompactionStatus ? (
+              <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 px-3 py-2 dark:border-amber-900/60 dark:bg-amber-950/20">
+                <div className="flex items-start gap-2">
+                  {message.compactionState === 'compacting' ? (
+                    <div className="mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin dark:border-amber-800 dark:border-t-amber-400" />
+                  ) : (
+                    <svg
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                      {message.compactionState === 'compacting'
+                        ? t('process.compacting')
+                        : t('process.compacted')}
+                    </div>
+                    {message.compactionSummary && (
+                      <details className="mt-1 group">
+                        <summary className="cursor-pointer text-xs text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200">
+                          {t('process.summary')}
+                        </summary>
+                        <div className="mt-2 text-sm text-amber-900 dark:text-amber-100">
+                          <Markdown className="prose prose-sm max-w-none dark:prose-invert">
+                            {message.compactionSummary}
+                          </Markdown>
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : message.isInteractivePrompt ? (
               // Special handling for interactive prompts
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
@@ -463,7 +500,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, o
               </div>
             )}
 
-            {(shouldShowAssistantCopyControl || !isGrouped) && (
+            {!isEmbeddedBatchMessage && (shouldShowAssistantCopyControl || !isGrouped) && (
               <div className="mt-1 flex w-full items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
                 {shouldShowAssistantCopyControl && (
                   <MessageCopyControl content={assistantCopyContent} messageType="assistant" />

@@ -8,6 +8,7 @@ import { getIntrinsicMessageKey } from '../../utils/messageKeys';
 import MessageComponent from './MessageComponent';
 import ProviderSelectionEmptyState from './ProviderSelectionEmptyState';
 import AssistantThinkingIndicator from './AssistantThinkingIndicator';
+import ToolCallBatch from './ToolCallBatch';
 
 interface ChatMessagesPaneProps {
   scrollContainerRef: RefObject<HTMLDivElement>;
@@ -54,6 +55,123 @@ interface ChatMessagesPaneProps {
   selectedProject: Project;
   isLoading: boolean;
 }
+
+type StandaloneMessageGroup = {
+  kind: 'standalone';
+  messages: ChatMessage[];
+  startIndex: number;
+};
+
+type TurnMessageGroup = {
+  kind: 'turn';
+  userMessage: ChatMessage;
+  userIndex: number;
+  leadingProcessMessages: ChatMessage[];
+  finalReply: ChatMessage | null;
+  trailingProcessMessages: ChatMessage[];
+  trailingVisibleMessage: ChatMessage | null;
+};
+
+type MessageRenderGroup = StandaloneMessageGroup | TurnMessageGroup;
+
+const isFormalAssistantReply = (message: ChatMessage) =>
+  message.type === 'assistant' &&
+  !message.isThinking &&
+  !message.isToolUse &&
+  !message.isInteractivePrompt &&
+  !message.isTaskNotification &&
+  !message.isCompactionStatus;
+
+const shouldKeepVisibleWithoutFinalReply = (message: ChatMessage | null) =>
+  Boolean(message && (message.type === 'error' || message.isInteractivePrompt));
+
+const isVisibleProcessMessage = (message: ChatMessage, showThinking?: boolean) => {
+  if (message.isThinking && !showThinking) {
+    return false;
+  }
+
+  return true;
+};
+
+const groupMessagesIntoTurns = (messages: ChatMessage[]): MessageRenderGroup[] => {
+  const groups: MessageRenderGroup[] = [];
+  let standaloneBuffer: ChatMessage[] = [];
+  let standaloneStartIndex = 0;
+
+  const flushStandaloneBuffer = () => {
+    if (standaloneBuffer.length === 0) {
+      return;
+    }
+
+    groups.push({
+      kind: 'standalone',
+      messages: [...standaloneBuffer],
+      startIndex: standaloneStartIndex,
+    });
+    standaloneBuffer = [];
+  };
+
+  let index = 0;
+  while (index < messages.length) {
+    const message = messages[index];
+
+    if (message.type !== 'user') {
+      if (standaloneBuffer.length === 0) {
+        standaloneStartIndex = index;
+      }
+      standaloneBuffer.push(message);
+      index += 1;
+      continue;
+    }
+
+    flushStandaloneBuffer();
+
+    let nextUserIndex = index + 1;
+    while (nextUserIndex < messages.length && messages[nextUserIndex].type !== 'user') {
+      nextUserIndex += 1;
+    }
+
+    const roundMessages = messages.slice(index + 1, nextUserIndex);
+    let finalReplyIndex = -1;
+    for (let roundIndex = roundMessages.length - 1; roundIndex >= 0; roundIndex -= 1) {
+      if (isFormalAssistantReply(roundMessages[roundIndex])) {
+        finalReplyIndex = roundIndex;
+        break;
+      }
+    }
+
+    let leadingProcessMessages = roundMessages;
+    let finalReply: ChatMessage | null = null;
+    let trailingProcessMessages: ChatMessage[] = [];
+    let trailingVisibleMessage: ChatMessage | null = null;
+
+    if (finalReplyIndex >= 0) {
+      finalReply = roundMessages[finalReplyIndex];
+      leadingProcessMessages = roundMessages.slice(0, finalReplyIndex);
+      trailingProcessMessages = roundMessages.slice(finalReplyIndex + 1);
+    } else {
+      const lastRoundMessage = roundMessages[roundMessages.length - 1] ?? null;
+      if (shouldKeepVisibleWithoutFinalReply(lastRoundMessage)) {
+        trailingVisibleMessage = lastRoundMessage;
+        leadingProcessMessages = roundMessages.slice(0, -1);
+      }
+    }
+
+    groups.push({
+      kind: 'turn',
+      userMessage: message,
+      userIndex: index,
+      leadingProcessMessages,
+      finalReply,
+      trailingProcessMessages,
+      trailingVisibleMessage,
+    });
+    index = nextUserIndex;
+  }
+
+  flushStandaloneBuffer();
+  return groups;
+};
 
 export default function ChatMessagesPane({
   scrollContainerRef,
@@ -104,6 +222,7 @@ export default function ChatMessagesPane({
   const messageKeyMapRef = useRef<WeakMap<ChatMessage, string>>(new WeakMap());
   const allocatedKeysRef = useRef<Set<string>>(new Set());
   const generatedMessageKeyCounterRef = useRef(0);
+  const groupedMessages = groupMessagesIntoTurns(visibleMessages);
 
   // Keep keys stable across prepends so existing MessageComponent instances retain local state.
   const getMessageKey = useCallback((message: ChatMessage) => {
@@ -128,6 +247,125 @@ export default function ChatMessagesPane({
     messageKeyMapRef.current.set(message, candidateKey);
     return candidateKey;
   }, []);
+
+  let latestUserMessageIndex = -1;
+  visibleMessages.forEach((message, index) => {
+    if (message.type === 'user') {
+      latestUserMessageIndex = index;
+    }
+  });
+
+  const renderMessage = (
+    message: ChatMessage,
+    prevMessage: ChatMessage | null,
+    embeddedInBatch = false,
+  ) => (
+    <MessageComponent
+      key={getMessageKey(message)}
+      message={message}
+      prevMessage={prevMessage}
+      createDiff={createDiff}
+      onFileOpen={onFileOpen}
+      onShowSettings={onShowSettings}
+      onGrantToolPermission={onGrantToolPermission}
+      autoExpandTools={autoExpandTools}
+      showRawParameters={showRawParameters}
+      showThinking={showThinking}
+      selectedProject={selectedProject}
+      provider={provider}
+      embeddedInBatch={embeddedInBatch}
+    />
+  );
+
+  const renderProcessBatch = (
+    processMessages: ChatMessage[],
+    previousMessage: ChatMessage,
+    isComplete: boolean,
+    batchKeyPrefix: string,
+  ) => {
+    const visibleProcessMessages = processMessages.filter((message) =>
+      isVisibleProcessMessage(message, showThinking),
+    );
+    const firstProcessMessage = visibleProcessMessages[0];
+    if (!firstProcessMessage) {
+      return null;
+    }
+
+    const toolCallCount = visibleProcessMessages.filter((message) => message.isToolUse).length;
+    const label = toolCallCount > 0
+      ? t(isComplete ? 'tools.executedCalls' : 'tools.executingCalls', { count: toolCallCount })
+      : t(isComplete ? 'process.completed' : 'process.running');
+
+    return (
+      <ToolCallBatch
+        key={`${batchKeyPrefix}-${getMessageKey(firstProcessMessage)}-${visibleProcessMessages.length}`}
+        count={toolCallCount}
+        label={label}
+        isComplete={isComplete}
+      >
+        <div className="space-y-2">
+          {visibleProcessMessages.map((processMessage, processIndex) =>
+            renderMessage(
+              processMessage,
+              processIndex > 0 ? visibleProcessMessages[processIndex - 1] : previousMessage,
+              true,
+            ),
+          )}
+        </div>
+      </ToolCallBatch>
+    );
+  };
+
+  const renderedMessages: React.ReactNode[] = [];
+  groupedMessages.forEach((group, groupIndex) => {
+    if (group.kind === 'standalone') {
+      group.messages.forEach((message, messageIndex) => {
+        const previousMessage = messageIndex > 0
+          ? group.messages[messageIndex - 1]
+          : group.startIndex > 0
+            ? visibleMessages[group.startIndex - 1]
+            : null;
+        renderedMessages.push(renderMessage(message, previousMessage));
+      });
+      return;
+    }
+
+    const previousVisibleMessage =
+      group.userIndex > 0 ? visibleMessages[group.userIndex - 1] : null;
+    const belongsToActiveRound = isLoading && group.userIndex === latestUserMessageIndex;
+    const isProcessBatchComplete = !belongsToActiveRound;
+
+    renderedMessages.push(renderMessage(group.userMessage, previousVisibleMessage));
+
+    const leadingBatch = renderProcessBatch(
+      group.leadingProcessMessages,
+      group.userMessage,
+      isProcessBatchComplete,
+      `turn-${groupIndex}-leading`,
+    );
+    if (leadingBatch) {
+      renderedMessages.push(leadingBatch);
+    }
+
+    if (group.finalReply) {
+      renderedMessages.push(renderMessage(group.finalReply, group.userMessage));
+    }
+
+    const trailingBatchAnchor = group.finalReply ?? group.userMessage;
+    const trailingBatch = renderProcessBatch(
+      group.trailingProcessMessages,
+      trailingBatchAnchor,
+      isProcessBatchComplete,
+      `turn-${groupIndex}-trailing`,
+    );
+    if (trailingBatch) {
+      renderedMessages.push(trailingBatch);
+    }
+
+    if (!group.finalReply && group.trailingVisibleMessage) {
+      renderedMessages.push(renderMessage(group.trailingVisibleMessage, group.userMessage));
+    }
+  });
 
   return (
     <div
@@ -241,25 +479,7 @@ export default function ChatMessagesPane({
             </div>
           )}
 
-          {visibleMessages.map((message, index) => {
-            const prevMessage = index > 0 ? visibleMessages[index - 1] : null;
-            return (
-              <MessageComponent
-                key={getMessageKey(message)}
-                message={message}
-                prevMessage={prevMessage}
-                createDiff={createDiff}
-                onFileOpen={onFileOpen}
-                onShowSettings={onShowSettings}
-                onGrantToolPermission={onGrantToolPermission}
-                autoExpandTools={autoExpandTools}
-                showRawParameters={showRawParameters}
-                showThinking={showThinking}
-                selectedProject={selectedProject}
-                provider={provider}
-              />
-            );
-          })}
+          {renderedMessages}
         </>
       )}
 

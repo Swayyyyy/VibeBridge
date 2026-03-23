@@ -54,6 +54,20 @@ const inferClaudeContentPartType = (part: unknown): string | null => {
   return null;
 };
 
+const extractCompactionSummary = (message: any): string => {
+  const candidate =
+    message.message?.content ??
+    message.summary ??
+    message.compactionSummary ??
+    message.content;
+
+  if (typeof candidate !== 'string') {
+    return '';
+  }
+
+  return unescapeWithMathProtection(decodeHtmlEntities(candidate));
+};
+
 export const calculateDiff = (oldStr: string, newStr: string): DiffLine[] => {
   const oldLines = oldStr.split('\n');
   const newLines = newStr.split('\n');
@@ -208,6 +222,19 @@ export const convertSessionMessages = (rawMessages: any[]): ChatMessage[] => {
           });
         }
       }
+      return;
+    }
+
+    if (message.type === 'compaction_status') {
+      const compactionSummary = extractCompactionSummary(message);
+      converted.push({
+        type: 'assistant',
+        content: compactionSummary,
+        timestamp: message.timestamp || new Date().toISOString(),
+        isCompactionStatus: true,
+        compactionState: message.status === 'compacting' ? 'compacting' : 'compacted',
+        compactionSummary: compactionSummary || undefined,
+      });
       return;
     }
 

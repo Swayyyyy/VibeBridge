@@ -265,10 +265,6 @@
       "title": "外部APIドキュメント",
       "description": "外部APIを使用してアプリケーションからClaude/Codexセッションを起動する方法を学びます。",
       "viewLink": "APIドキュメントを見る →"
-    },
-    "loading": "読み込み中...",
-    "version": {
-      "updateAvailable": "アップデートあり: v{{version}}"
     }
   },
   "tasks": {
@@ -429,7 +425,7 @@
   },
   "pluginSettings": {
     "title": "プラグイン",
-    "description": "カスタムプラグインでインターフェースを拡張します。gitからインストールするか、~/.claude-code-ui/plugins/ にフォルダを配置してください。",
+    "description": "カスタムプラグインでインターフェースを拡張します。gitからインストールするか、~/.vibebridge/plugins/ にフォルダを配置してください。",
     "installPlaceholder": "https://github.com/user/my-plugin",
     "installButton": "インストール",
     "installing": "インストール中…",

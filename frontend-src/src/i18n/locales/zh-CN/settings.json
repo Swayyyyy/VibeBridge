@@ -265,10 +265,6 @@
       "title": "外部 API 文档",
       "description": "了解如何使用外部 API 从您的应用程序触发 Claude/Codex 会话。",
       "viewLink": "查看 API 文档 →"
-    },
-    "loading": "加载中...",
-    "version": {
-      "updateAvailable": "有可用更新：v{{version}}"
     }
   },
   "tasks": {
@@ -444,7 +440,7 @@
   },
   "pluginSettings": {
     "title": "插件",
-    "description": "通过自定义插件扩展界面。从 git 安装或直接将文件夹放入 ~/.claude-code-ui/plugins/",
+    "description": "通过自定义插件扩展界面。从 git 安装或直接将文件夹放入 ~/.vibebridge/plugins/",
     "installPlaceholder": "https://github.com/user/my-plugin",
     "installButton": "安装",
     "installing": "安装中…",

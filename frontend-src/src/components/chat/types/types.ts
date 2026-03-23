@@ -35,6 +35,9 @@ export interface ChatMessage {
   isThinking?: boolean;
   isStreaming?: boolean;
   isInteractivePrompt?: boolean;
+  isCompactionStatus?: boolean;
+  compactionState?: 'compacting' | 'compacted';
+  compactionSummary?: string;
   isToolUse?: boolean;
   toolName?: string;
   toolInput?: unknown;
@@ -48,6 +51,21 @@ export interface ChatMessage {
     isComplete: boolean;
   };
   [key: string]: unknown;
+}
+
+export type QueuedPromptMode = 'queue' | 'guide';
+export type QueuedPromptState = 'queued' | 'dispatching';
+
+export interface QueuedPromptItem {
+  id: string;
+  prompt: string;
+  provider: SessionProvider;
+  projectName: string;
+  nodeId: string | null;
+  targetSessionId: string | null;
+  mode: QueuedPromptMode;
+  state: QueuedPromptState;
+  queuedAt: number;
 }
 
 export interface ClaudeSettings {

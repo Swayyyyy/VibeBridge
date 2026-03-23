@@ -124,8 +124,13 @@ export const api = {
   // Protected endpoints
   // config endpoint removed - no longer needed (frontend uses window.location)
   projects: () => authenticatedFetch('/api/projects'),
-  sessions: (projectName, limit = 5, offset = 0) =>
-    authenticatedFetch(`/api/projects/${projectName}/sessions?limit=${limit}&offset=${offset}`),
+  sessions: (projectName, limit = 5, offset = 0, provider = 'claude') => {
+    const params = new URLSearchParams();
+    params.append('limit', limit);
+    params.append('offset', offset);
+    if (provider) params.append('provider', provider);
+    return authenticatedFetch(`/api/projects/${projectName}/sessions?${params.toString()}`);
+  },
   sessionMessages: (projectName, sessionId, limit = null, offset = 0, provider = 'claude') => {
     const params = new URLSearchParams();
     if (limit !== null) {
@@ -341,8 +346,15 @@ export const api = {
         method: 'DELETE',
       }),
     projects: (nodeId) => authenticatedFetch(`/api/nodes/${nodeId}/projects`),
-    sessions: (nodeId, projectName, limit = 5, offset = 0) =>
-      authenticatedFetch(`/api/nodes/${nodeId}/projects/${projectName}/sessions?limit=${limit}&offset=${offset}`),
+    sessions: (nodeId, projectName, limit = 5, offset = 0, provider = 'claude') => {
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      params.append('offset', offset);
+      if (provider) params.append('provider', provider);
+      return authenticatedFetch(
+        `/api/nodes/${nodeId}/projects/${projectName}/sessions?${params.toString()}`
+      );
+    },
     sessionMessages: (nodeId, projectName, sessionId, limit = null, offset = 0, provider = 'claude') => {
       const params = new URLSearchParams();
       if (limit !== null) {
@@ -366,12 +378,17 @@ export const api = {
     }
     return authenticatedFetch('/api/projects');
   },
-  nodeAwareSessions: (projectName, limit = 5, offset = 0) => {
+  nodeAwareSessions: (projectName, limit = 5, offset = 0, provider = 'claude') => {
     const nodeId = getSelectedNodeId();
+    const params = new URLSearchParams();
+    params.append('limit', limit);
+    params.append('offset', offset);
+    if (provider) params.append('provider', provider);
+    const queryString = params.toString();
     if (nodeId && isMultiNodeMode()) {
-      return authenticatedFetch(`/api/nodes/${nodeId}/projects/${projectName}/sessions?limit=${limit}&offset=${offset}`);
+      return authenticatedFetch(`/api/nodes/${nodeId}/projects/${projectName}/sessions?${queryString}`);
     }
-    return authenticatedFetch(`/api/projects/${projectName}/sessions?limit=${limit}&offset=${offset}`);
+    return authenticatedFetch(`/api/projects/${projectName}/sessions?${queryString}`);
   },
   nodeAwareSessionMessages: (projectName, sessionId, limit = null, offset = 0, provider = 'claude') => {
     const nodeId = getSelectedNodeId();

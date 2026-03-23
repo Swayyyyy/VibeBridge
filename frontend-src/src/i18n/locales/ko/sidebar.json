@@ -35,8 +35,8 @@
     "showMore": "더 많은 세션 보기"
   },
   "tooltips": {
-    "viewEnvironments": "환경 보기",
     "hideSidebar": "사이드바 숨기기",
+    "showSidebar": "사이드바 표시",
     "createProject": "새 프로젝트 생성",
     "refresh": "프로젝트 및 세션 새로고침 (Ctrl+R)",
     "renameProject": "프로젝트 이름 변경 (F2)",
@@ -164,9 +164,6 @@
     "deleteProjectError": "프로젝트 삭제 오류. 다시 시도해주세요.",
     "createProjectFailed": "프로젝트 생성 실패. 다시 시도해주세요.",
     "createProjectError": "프로젝트 생성 오류. 다시 시도해주세요."
-  },
-  "version": {
-    "updateAvailable": "업데이트 가능"
   },
   "deleteConfirmation": {
     "deleteProject": "프로젝트 삭제",

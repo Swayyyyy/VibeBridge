@@ -11,11 +11,9 @@ import {
   Server,
   X,
 } from 'lucide-react';
-import { IS_PLATFORM } from '../../../constants/config';
 import { useNodes } from '../../../contexts/NodeContext';
 import { useDeviceSettings } from '../../../hooks/useDeviceSettings';
 import { useUiPreferences } from '../../../hooks/useUiPreferences';
-import { useVersionCheck } from '../../../hooks/useVersionCheck';
 import type { OpenSessionEntry, Project, SessionProvider } from '../../../types/app';
 import { api, prefixUrl } from '../../../utils/api';
 import { isNodeOffline } from '../../../utils/nodeStatus';
@@ -537,17 +535,7 @@ function SidebarHeader({
 
   return (
     <div className="flex items-center gap-2">
-      {IS_PLATFORM ? (
-        <a
-          href="https://cloudcli.ai/dashboard"
-          className="flex flex-shrink-0 transition-opacity hover:opacity-80 active:opacity-70"
-          title={t('tooltips.viewEnvironments')}
-        >
-          {logo}
-        </a>
-      ) : (
-        logo
-      )}
+      {logo}
 
       <div className="min-w-0 flex flex-1 flex-col justify-center">
         <div className="flex min-h-6 items-center justify-between gap-2">
@@ -1228,10 +1216,6 @@ export default function Sidebar({
   const { t } = useTranslation(['sidebar', 'common']);
   const { nodes, selectedNodeId, removeNode } = useNodes();
   const { isPWA } = useDeviceSettings({ trackMobile: false });
-  const { updateAvailable, latestVersion, currentVersion, releaseInfo, installMode } = useVersionCheck(
-    'siteboon',
-    'claudecodeui',
-  );
   const { preferences, setPreference } = useUiPreferences();
   const { sidebarVisible } = preferences;
 
@@ -1242,7 +1226,6 @@ export default function Sidebar({
   const [openSessionsSearch, setOpenSessionsSearch] = useState('');
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [pickerSearch, setPickerSearch] = useState('');
-  const [showVersionModal, setShowVersionModal] = useState(false);
   const [newSessionNodeId, setNewSessionNodeId] = useState('');
   const [newSessionPath, setNewSessionPath] = useState('');
   const [newSessionProvider, setNewSessionProvider] = useState<SessionProvider>('claude');
@@ -1619,20 +1602,12 @@ export default function Sidebar({
           sessionDeleteConfirmation={null}
           onCancelDeleteSession={() => undefined}
           onConfirmDeleteSession={() => undefined}
-          showVersionModal={showVersionModal}
-          onCloseVersionModal={() => setShowVersionModal(false)}
-          releaseInfo={releaseInfo}
-          currentVersion={currentVersion}
-          latestVersion={latestVersion}
-          installMode={installMode}
           t={t}
         />
 
         <SidebarCollapsed
           onExpand={expandSidebar}
           onShowSettings={onShowSettings}
-          updateAvailable={updateAvailable}
-          onShowVersionModal={() => setShowVersionModal(true)}
           t={t}
         />
       </>
@@ -1652,12 +1627,6 @@ export default function Sidebar({
         sessionDeleteConfirmation={null}
         onCancelDeleteSession={() => undefined}
         onConfirmDeleteSession={() => undefined}
-        showVersionModal={showVersionModal}
-        onCloseVersionModal={() => setShowVersionModal(false)}
-        releaseInfo={releaseInfo}
-        currentVersion={currentVersion}
-        latestVersion={latestVersion}
-        installMode={installMode}
         t={t}
       />
 
@@ -1807,10 +1776,6 @@ export default function Sidebar({
         </ScrollArea>
 
         <SidebarFooter
-          updateAvailable={updateAvailable}
-          releaseInfo={releaseInfo}
-          latestVersion={latestVersion}
-          onShowVersionModal={() => setShowVersionModal(true)}
           onShowSettings={onShowSettings}
           t={t}
         />

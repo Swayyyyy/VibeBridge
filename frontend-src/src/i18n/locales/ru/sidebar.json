@@ -35,8 +35,8 @@
     "showMore": "Показать больше сеансов"
   },
   "tooltips": {
-    "viewEnvironments": "Просмотр окружений",
     "hideSidebar": "Скрыть боковую панель",
+    "showSidebar": "Показать боковую панель",
     "createProject": "Создать новый проект",
     "refresh": "Обновить проекты и сеансы (Ctrl+R)",
     "renameProject": "Переименовать проект (F2)",
@@ -164,9 +164,6 @@
     "deleteProjectError": "Ошибка при удалении проекта. Попробуйте снова.",
     "createProjectFailed": "Не удалось создать проект. Попробуйте снова.",
     "createProjectError": "Ошибка при создании проекта. Попробуйте снова."
-  },
-  "version": {
-    "updateAvailable": "Доступно обновление"
   },
   "search": {
     "modeProjects": "Проекты",

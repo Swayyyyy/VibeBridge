@@ -41,6 +41,57 @@ export interface ToolDisplayConfig {
   };
 }
 
+const joinBashCommandParts = (value: unknown): string => {
+  if (!Array.isArray(value)) {
+    return '';
+  }
+
+  const parts = value
+    .filter((part) => part !== null && part !== undefined)
+    .map((part) => String(part).trim())
+    .filter(Boolean);
+
+  return parts.join(' ');
+};
+
+const getBashCommandValue = (input: any): string => {
+  if (typeof input === 'string') {
+    return input;
+  }
+
+  if (Array.isArray(input)) {
+    return joinBashCommandParts(input);
+  }
+
+  if (!input || typeof input !== 'object') {
+    return '';
+  }
+
+  if (typeof input.command === 'string' && input.command.trim()) {
+    return input.command;
+  }
+
+  if (typeof input.cmd === 'string' && input.cmd.trim()) {
+    return input.cmd;
+  }
+
+  const joinedCommand =
+    joinBashCommandParts(input.command) ||
+    joinBashCommandParts(input.cmd) ||
+    joinBashCommandParts(input.argv) ||
+    joinBashCommandParts(input.args);
+
+  if (joinedCommand) {
+    return joinedCommand;
+  }
+
+  if (input.parsedCommand) {
+    return getBashCommandValue(input.parsedCommand);
+  }
+
+  return '';
+};
+
 export const TOOL_CONFIGS: Record<string, ToolDisplayConfig> = {
   // ============================================================================
   // COMMAND TOOLS
@@ -50,7 +101,7 @@ export const TOOL_CONFIGS: Record<string, ToolDisplayConfig> = {
     input: {
       type: 'one-line',
       icon: 'terminal',
-      getValue: (input) => input.command,
+      getValue: getBashCommandValue,
       getSecondary: (input) => input.description,
       action: 'copy',
       style: 'terminal',

@@ -35,8 +35,8 @@
     "showMore": "显示更多会话"
   },
   "tooltips": {
-    "viewEnvironments": "查看环境",
     "hideSidebar": "隐藏侧边栏",
+    "showSidebar": "显示侧边栏",
     "createProject": "创建新项目",
     "refresh": "刷新项目和会话 (Ctrl+R)",
     "renameProject": "重命名项目 (F2)",
@@ -164,9 +164,6 @@
     "deleteProjectError": "删除项目时出错，请重试。",
     "createProjectFailed": "创建项目失败，请重试。",
     "createProjectError": "创建项目时出错，请重试。"
-  },
-  "version": {
-    "updateAvailable": "有可用更新"
   },
   "search": {
     "modeProjects": "项目",

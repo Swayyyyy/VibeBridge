@@ -11,12 +11,13 @@ import type {
 } from 'react';
 import MicButton from '../../../mic-button/view/MicButton';
 import type { ProviderThinkingEffort } from '../../../../shared/providerSettings';
-import type { PendingPermissionRequest, PermissionMode, Provider } from '../../types/types';
+import type { PendingPermissionRequest, PermissionMode, Provider, QueuedPromptItem } from '../../types/types';
 import CommandMenu from './CommandMenu';
 import ClaudeStatus from './ClaudeStatus';
 import ImageAttachment from './ImageAttachment';
 import PermissionRequestsBanner from './PermissionRequestsBanner';
 import ChatInputControls from './ChatInputControls';
+import QueuedPromptPanel from './QueuedPromptPanel';
 
 interface MentionableFile {
   name: string;
@@ -66,6 +67,10 @@ interface ChatComposerProps {
   onRemoveImage: (index: number) => void;
   uploadingImages: Map<string, number>;
   imageErrors: Map<string, string>;
+  queuedPrompts: QueuedPromptItem[];
+  onGuideQueuedPrompt: (queuePromptId: string) => void;
+  onCancelQueuedPrompt: (queuePromptId: string) => void;
+  onEditQueuedPrompt: (queuePromptId: string) => void;
   showFileDropdown: boolean;
   filteredFiles: MentionableFile[];
   selectedFileIndex: number;
@@ -127,6 +132,10 @@ export default function ChatComposer({
   onRemoveImage,
   uploadingImages,
   imageErrors,
+  queuedPrompts,
+  onGuideQueuedPrompt,
+  onCancelQueuedPrompt,
+  onEditQueuedPrompt,
   showFileDropdown,
   filteredFiles,
   selectedFileIndex,
@@ -169,6 +178,18 @@ export default function ChatComposer({
   const hasQuestionPanel = pendingPermissionRequests.some(
     (r) => r.toolName === 'AskUserQuestion'
   );
+  const isLiveTurnControlActive = (provider === 'codex' || provider === 'claude') && isLoading;
+  const helperText = isLiveTurnControlActive
+    ? sendByCtrlEnter
+      ? t('input.hintText.liveCtrlEnter', {
+          defaultValue: 'Ctrl+Enter to add to queue • Shift+Enter for new line',
+        })
+      : t('input.hintText.liveEnter', {
+          defaultValue: 'Enter to add to queue • Shift+Enter for new line',
+        })
+    : sendByCtrlEnter
+      ? t('input.hintText.ctrlEnter')
+      : t('input.hintText.enter');
 
   // On mobile, when input is focused, float the input box at the bottom
   const mobileFloatingClass = isInputFocused
@@ -216,6 +237,15 @@ export default function ChatComposer({
           onScrollToBottom={onScrollToBottom}
         />}
       </div>
+
+      {!hasQuestionPanel && (
+        <QueuedPromptPanel
+          queuedPrompts={queuedPrompts}
+          onGuideQueuedPrompt={onGuideQueuedPrompt}
+          onCancelQueuedPrompt={onCancelQueuedPrompt}
+          onEditQueuedPrompt={onEditQueuedPrompt}
+        />
+      )}
 
       {!hasQuestionPanel && <form onSubmit={onSubmit as (event: FormEvent<HTMLFormElement>) => void} className="relative mx-auto max-w-4xl">
         {isDragActive && (
@@ -339,7 +369,7 @@ export default function ChatComposer({
 
             <button
               type="submit"
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || (isLoading && !isLiveTurnControlActive)}
               onMouseDown={(event) => {
                 event.preventDefault();
                 onSubmit(event);
@@ -349,6 +379,16 @@ export default function ChatComposer({
                 onSubmit(event);
               }}
               className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 transform items-center justify-center rounded-xl bg-primary transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 focus:ring-offset-background disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground sm:h-11 sm:w-11"
+              title={
+                isLiveTurnControlActive
+                  ? t('input.queueNextTurn', { defaultValue: 'Add to queue' })
+                  : t('input.send')
+              }
+              aria-label={
+                isLiveTurnControlActive
+                  ? t('input.queueNextTurn', { defaultValue: 'Add to queue' })
+                  : t('input.send')
+              }
             >
               <svg className="h-4 w-4 rotate-90 transform text-primary-foreground sm:h-[18px] sm:w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -360,7 +400,7 @@ export default function ChatComposer({
                 input.trim() ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              {sendByCtrlEnter ? t('input.hintText.ctrlEnter') : t('input.hintText.enter')}
+              {helperText}
             </div>
           </div>
         </div>

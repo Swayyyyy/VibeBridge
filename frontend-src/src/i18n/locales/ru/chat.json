@@ -31,7 +31,15 @@
     "readFile": "Чтение файла",
     "updateTodo": "Обновить список задач",
     "readTodo": "Прочитать список задач",
-    "searchResults": "результаты"
+    "searchResults": "результаты",
+    "executingCalls_one": "Выполняется {{count}} вызов инструмента",
+    "executingCalls_few": "Выполняется {{count}} вызова инструмента",
+    "executingCalls_many": "Выполняется {{count}} вызовов инструмента",
+    "executingCalls_other": "Выполняется {{count}} вызовов инструмента",
+    "executedCalls_one": "Выполнен {{count}} вызов инструмента",
+    "executedCalls_few": "Выполнено {{count}} вызова инструмента",
+    "executedCalls_many": "Выполнено {{count}} вызовов инструмента",
+    "executedCalls_other": "Выполнено {{count}} вызовов инструмента"
   },
   "search": {
     "found": "Найдено {{count}} {{type}}",
@@ -83,6 +91,14 @@
   "usageLimit": {
     "resetAt": "Достигнут лимит использования Claude. Ваш лимит будет сброшен в **{{time}} {{timezone}}** - {{date}}"
   },
+  "tokenUsage": {
+    "ariaLabel": "Использование контекстного окна",
+    "tooltip": {
+      "title": "Контекстное окно",
+      "percentageSummary": "Использовано {{used}} (осталось {{remaining}})",
+      "tokensSummary": "Использовано {{usedTokens}} токенов, всего {{totalTokens}}"
+    }
+  },
   "codex": {
     "permissionMode": "Режим разрешений",
     "modes": {
@@ -107,14 +123,28 @@
     "attachImages": "Прикрепить изображения",
     "send": "Отправить",
     "stop": "Остановить",
+    "queueNextTurn": "Добавить в очередь",
+    "queuedCount_one": "{{count}} в очереди",
+    "queuedCount_few": "{{count}} в очереди",
+    "queuedCount_many": "{{count}} в очереди",
+    "queuedCount_other": "{{count}} в очереди",
     "hintText": {
       "ctrlEnter": "Ctrl+Enter для отправки • Shift+Enter для новой строки • Tab для смены режима • / для команд",
-      "enter": "Enter для отправки • Shift+Enter для новой строки • Tab для смены режима • / для команд"
+      "enter": "Enter для отправки • Shift+Enter для новой строки • Tab для смены режима • / для команд",
+      "liveCtrlEnter": "Ctrl+Enter добавит в очередь • Shift+Enter для новой строки",
+      "liveEnter": "Enter добавит в очередь • Shift+Enter для новой строки"
     },
     "clickToChangeMode": "Нажмите для смены режима разрешений (или нажмите Tab в поле ввода)",
     "showAllCommands": "Показать все команды",
     "clearInput": "Очистить ввод",
     "scrollToBottom": "Прокрутить вниз"
+  },
+  "queuedPrompt": {
+    "status": "В очереди",
+    "guide": "Следующим",
+    "more": "Еще",
+    "edit": "Изменить сообщение",
+    "cancel": "Убрать из очереди"
   },
   "thinkingMode": {
     "selector": {

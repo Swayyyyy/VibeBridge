@@ -265,10 +265,6 @@
       "title": "External API Documentation",
       "description": "Learn how to use the external API to trigger Claude/Codex sessions from your applications.",
       "viewLink": "View API Documentation →"
-    },
-    "loading": "Loading...",
-    "version": {
-      "updateAvailable": "Update available: v{{version}}"
     }
   },
   "tasks": {
@@ -444,7 +440,7 @@
   },
   "pluginSettings": {
     "title": "Plugins",
-    "description": "Extend the interface with custom plugins. Install from git or drop a folder in ~/.claude-code-ui/plugins/",
+    "description": "Extend the interface with custom plugins. Install from git or drop a folder in ~/.vibebridge/plugins/",
     "installPlaceholder": "https://github.com/user/my-plugin",
     "installButton": "Install",
     "installing": "Installing…",

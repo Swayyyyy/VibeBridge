@@ -211,34 +211,5 @@
       "failedToCreate": "Failed to create workspace",
       "failedToCreateFolder": "Failed to create folder"
     }
-  },
-  "versionUpdate": {
-    "title": "Update Available",
-    "newVersionReady": "A new version is ready",
-    "currentVersion": "Current Version",
-    "latestVersion": "Latest Version",
-    "whatsNew": "What's New:",
-    "viewFullRelease": "View full release",
-    "updateProgress": "Update Progress:",
-    "manualUpgrade": "Manual upgrade:",
-    "npmUpgradeCommand": "npm install -g @siteboon/claude-code-ui@latest",
-    "manualUpgradeHint": "Or click \"Update Now\" to run the update automatically.",
-    "updateCompleted": "Update completed successfully!",
-    "restartServer": "Please restart the server to apply changes.",
-    "updateFailed": "Update failed",
-    "buttons": {
-      "close": "Close",
-      "later": "Later",
-      "copyCommand": "Copy Command",
-      "updateNow": "Update Now",
-      "updating": "Updating..."
-    },
-    "ariaLabels": {
-      "closeModal": "Close version upgrade modal",
-      "showSidebar": "Show sidebar",
-      "settings": "Settings",
-      "updateAvailable": "Update available",
-      "closeSidebar": "Close sidebar"
-    }
   }
 }

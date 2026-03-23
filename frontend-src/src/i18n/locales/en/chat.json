@@ -31,7 +31,18 @@
     "readFile": "Read file",
     "updateTodo": "Update todo list",
     "readTodo": "Read todo list",
-    "searchResults": "results"
+    "searchResults": "results",
+    "executingCalls_one": "Running {{count}} tool call",
+    "executingCalls_other": "Running {{count}} tool calls",
+    "executedCalls_one": "Executed {{count}} tool call",
+    "executedCalls_other": "Executed {{count}} tool calls"
+  },
+  "process": {
+    "running": "Processing",
+    "completed": "Activity",
+    "compacting": "Compacting",
+    "compacted": "Compacted",
+    "summary": "View compaction summary"
   },
   "search": {
     "found": "Found {{count}} {{type}}",
@@ -83,6 +94,14 @@
   "usageLimit": {
     "resetAt": "Claude usage limit reached. Your limit will reset at **{{time}} {{timezone}}** - {{date}}"
   },
+  "tokenUsage": {
+    "ariaLabel": "Context window usage",
+    "tooltip": {
+      "title": "Context window",
+      "percentageSummary": "{{used}} used ({{remaining}} remaining)",
+      "tokensSummary": "{{usedTokens}} tokens used, {{totalTokens}} total"
+    }
+  },
   "codex": {
     "permissionMode": "Permission Mode",
     "modes": {
@@ -107,14 +126,26 @@
     "attachImages": "Attach images",
     "send": "Send",
     "stop": "Stop",
+    "queueNextTurn": "Add to queue",
+    "queuedCount_one": "{{count}} queued",
+    "queuedCount_other": "{{count}} queued",
     "hintText": {
       "ctrlEnter": "Ctrl+Enter to send • Shift+Enter for new line • Tab to change modes • / for slash commands",
-      "enter": "Enter to send • Shift+Enter for new line • Tab to change modes • / for slash commands"
+      "enter": "Enter to send • Shift+Enter for new line • Tab to change modes • / for slash commands",
+      "liveCtrlEnter": "Ctrl+Enter to add to queue • Shift+Enter for new line",
+      "liveEnter": "Enter to add to queue • Shift+Enter for new line"
     },
     "clickToChangeMode": "Click to change permission mode (or press Tab in input)",
     "showAllCommands": "Show all commands",
     "clearInput": "Clear input",
     "scrollToBottom": "Scroll to bottom"
+  },
+  "queuedPrompt": {
+    "status": "Queued",
+    "guide": "Run next",
+    "more": "More",
+    "edit": "Edit message",
+    "cancel": "Remove from queue"
   },
   "thinkingMode": {
     "simple": {

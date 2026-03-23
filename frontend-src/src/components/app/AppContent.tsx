@@ -97,7 +97,8 @@ export default function AppContent() {
     };
   }, [openSettings]);
 
-  // Permission recovery: query pending permissions on WebSocket reconnect or session change
+  // Session recovery: on connect/reconnect or view switch, re-bind the active session stream
+  // and fetch any permission prompts that were waiting while the socket was down.
   useEffect(() => {
     const isReconnect = isConnected && !wasConnectedRef.current;
 
@@ -108,13 +109,19 @@ export default function AppContent() {
     }
 
     if (isConnected && selectedSession?.id) {
+      const provider = selectedSession.__provider || 'claude';
+      sendMessage({
+        type: 'check-session-status',
+        sessionId: selectedSession.id,
+        provider,
+      });
       sendMessage({
         type: 'get-pending-permissions',
         sessionId: selectedSession.id,
-        provider: selectedSession.provider,
+        provider,
       });
     }
-  }, [isConnected, selectedSession?.id, selectedSession?.provider, sendMessage]);
+  }, [isConnected, selectedSession?.id, selectedSession?.__provider, sendMessage]);
 
   return (
     <div className="fixed inset-0 flex bg-background">
@@ -138,7 +145,7 @@ export default function AppContent() {
               event.stopPropagation();
               setSidebarOpen(false);
             }}
-            aria-label={t('versionUpdate.ariaLabels.closeSidebar')}
+            aria-label={t('sidebar:tooltips.hideSidebar')}
           />
           <div
             className={`relative h-full w-[85vw] max-w-sm transform border-r border-border/40 bg-card transition-transform duration-150 ease-out sm:w-80 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'

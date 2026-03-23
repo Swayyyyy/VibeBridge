@@ -265,10 +265,6 @@
       "title": "외부 API 문서",
       "description": "외부 API를 사용하여 애플리케이션에서 Claude/Codex 세션을 트리거하는 방법을 알아보세요.",
       "viewLink": "API 문서 보기 →"
-    },
-    "loading": "로딩 중...",
-    "version": {
-      "updateAvailable": "업데이트 가능: v{{version}}"
     }
   },
   "tasks": {
@@ -429,7 +425,7 @@
   },
   "pluginSettings": {
     "title": "플러그인",
-    "description": "커스텀 플러그인으로 인터페이스를 확장하세요. git에서 설치하거나 ~/.claude-code-ui/plugins/ 폴더에 직접 추가할 수 있습니다.",
+    "description": "커스텀 플러그인으로 인터페이스를 확장하세요. git에서 설치하거나 ~/.vibebridge/plugins/ 폴더에 직접 추가할 수 있습니다.",
     "installPlaceholder": "https://github.com/user/my-plugin",
     "installButton": "설치",
     "installing": "설치 중…",

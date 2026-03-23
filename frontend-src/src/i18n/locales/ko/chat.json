@@ -31,7 +31,11 @@
     "readFile": "파일 읽기",
     "updateTodo": "Todo 리스트 업데이트",
     "readTodo": "Todo 리스트 읽기",
-    "searchResults": "결과"
+    "searchResults": "결과",
+    "executingCalls_one": "도구 호출 {{count}}개 실행 중",
+    "executingCalls_other": "도구 호출 {{count}}개 실행 중",
+    "executedCalls_one": "도구 호출 {{count}}개 실행됨",
+    "executedCalls_other": "도구 호출 {{count}}개 실행됨"
   },
   "search": {
     "found": "{{count}}개의 {{type}} 발견",
@@ -83,6 +87,14 @@
   "usageLimit": {
     "resetAt": "Claude 사용량 한도에 도달했습니다. 한도는 **{{time}} {{timezone}}** - {{date}}에 초기화됩니다"
   },
+  "tokenUsage": {
+    "ariaLabel": "컨텍스트 윈도우 사용량",
+    "tooltip": {
+      "title": "컨텍스트 윈도우",
+      "percentageSummary": "{{used}} 사용 중 ({{remaining}} 남음)",
+      "tokensSummary": "{{usedTokens}} 토큰 사용, 총 {{totalTokens}}"
+    }
+  },
   "codex": {
     "permissionMode": "권한 모드",
     "modes": {
@@ -107,14 +119,26 @@
     "attachImages": "이미지 첨부",
     "send": "전송",
     "stop": "중지",
+    "queueNextTurn": "대기열에 추가",
+    "queuedCount_one": "{{count}}개 대기 중",
+    "queuedCount_other": "{{count}}개 대기 중",
     "hintText": {
       "ctrlEnter": "Ctrl+Enter로 전송 • Shift+Enter로 줄바꿈 • Tab으로 모드 변경 • /로 슬래시 명령어",
-      "enter": "Enter로 전송 • Shift+Enter로 줄바꿈 • Tab으로 모드 변경 • /로 슬래시 명령어"
+      "enter": "Enter로 전송 • Shift+Enter로 줄바꿈 • Tab으로 모드 변경 • /로 슬래시 명령어",
+      "liveCtrlEnter": "Ctrl+Enter로 대기열에 추가 • Shift+Enter로 줄바꿈",
+      "liveEnter": "Enter로 대기열에 추가 • Shift+Enter로 줄바꿈"
     },
     "clickToChangeMode": "클릭하여 권한 모드 변경 (또는 입력창에서 Tab)",
     "showAllCommands": "모든 명령어 보기",
     "clearInput": "입력 지우기",
     "scrollToBottom": "맨 아래로 스크롤"
+  },
+  "queuedPrompt": {
+    "status": "대기 중",
+    "guide": "다음 실행",
+    "more": "더보기",
+    "edit": "메시지 수정",
+    "cancel": "대기열에서 제거"
   },
   "thinkingMode": {
     "selector": {

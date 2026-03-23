@@ -265,10 +265,6 @@
       "title": "Документация внешнего API",
       "description": "Узнайте, как использовать внешний API для запуска сеансов Claude/Codex из ваших приложений.",
       "viewLink": "Просмотр документации API →"
-    },
-    "loading": "Загрузка...",
-    "version": {
-      "updateAvailable": "Доступно обновление: v{{version}}"
     }
   },
   "tasks": {
@@ -429,7 +425,7 @@
   },
   "pluginSettings": {
     "title": "Плагины",
-    "description": "Расширяйте интерфейс с помощью кастомных плагинов. Установите из git или добавьте папку в ~/.claude-code-ui/plugins/",
+    "description": "Расширяйте интерфейс с помощью кастомных плагинов. Установите из git или добавьте папку в ~/.vibebridge/plugins/",
     "installPlaceholder": "https://github.com/user/my-plugin",
     "installButton": "Установить",
     "installing": "Установка…",

@@ -31,7 +31,18 @@
     "readFile": "读取文件",
     "updateTodo": "更新待办列表",
     "readTodo": "读取待办列表",
-    "searchResults": "结果"
+    "searchResults": "结果",
+    "executingCalls_one": "正在执行 {{count}} 个工具调用",
+    "executingCalls_other": "正在执行 {{count}} 个工具调用",
+    "executedCalls_one": "已执行 {{count}} 个工具调用",
+    "executedCalls_other": "已执行 {{count}} 个工具调用"
+  },
+  "process": {
+    "running": "处理中",
+    "completed": "过程日志",
+    "compacting": "正在压缩上下文",
+    "compacted": "已压缩上下文",
+    "summary": "查看压缩摘要"
   },
   "search": {
     "found": "找到 {{count}} 个{{type}}",
@@ -83,6 +94,14 @@
   "usageLimit": {
     "resetAt": "Claude 使用限制已达到。您的限制将在 **{{time}} {{timezone}}** - {{date}} 重置"
   },
+  "tokenUsage": {
+    "ariaLabel": "上下文窗口占用情况",
+    "tooltip": {
+      "title": "背景信息窗口",
+      "percentageSummary": "{{used}} 已用（剩余 {{remaining}}）",
+      "tokensSummary": "已用 {{usedTokens}} 标记，共 {{totalTokens}}"
+    }
+  },
   "codex": {
     "permissionMode": "权限模式",
     "modes": {
@@ -107,14 +126,26 @@
     "attachImages": "附加图片",
     "send": "发送",
     "stop": "停止",
+    "queueNextTurn": "加入队列",
+    "queuedCount_one": "已排队 {{count}} 条",
+    "queuedCount_other": "已排队 {{count}} 条",
     "hintText": {
       "ctrlEnter": "Ctrl+Enter 发送 • Shift+Enter 换行 • Tab 切换模式 • / 斜杠命令",
-      "enter": "Enter 发送 • Shift+Enter 换行 • Tab 切换模式 • / 斜杠命令"
+      "enter": "Enter 发送 • Shift+Enter 换行 • Tab 切换模式 • / 斜杠命令",
+      "liveCtrlEnter": "Ctrl+Enter 加入队列 • Shift+Enter 换行",
+      "liveEnter": "Enter 加入队列 • Shift+Enter 换行"
     },
     "clickToChangeMode": "点击更改权限模式（或在输入框中按 Tab）",
     "showAllCommands": "显示所有命令",
     "clearInput": "清空输入",
     "scrollToBottom": "滚动到底部"
+  },
+  "queuedPrompt": {
+    "status": "已排队",
+    "guide": "插队",
+    "more": "更多",
+    "edit": "编辑消息",
+    "cancel": "移出队列"
   },
   "thinkingMode": {
     "simple": {

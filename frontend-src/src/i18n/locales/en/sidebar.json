@@ -35,8 +35,8 @@
     "showMore": "Show more sessions"
   },
   "tooltips": {
-    "viewEnvironments": "View Environments",
     "hideSidebar": "Hide sidebar",
+    "showSidebar": "Show sidebar",
     "createProject": "Create new project",
     "refresh": "Refresh projects and sessions (Ctrl+R)",
     "renameProject": "Rename project (F2)",
@@ -164,9 +164,6 @@
     "deleteProjectError": "Error deleting project. Please try again.",
     "createProjectFailed": "Failed to create project. Please try again.",
     "createProjectError": "Error creating project. Please try again."
-  },
-  "version": {
-    "updateAvailable": "Update available"
   },
   "search": {
     "modeProjects": "Projects",
