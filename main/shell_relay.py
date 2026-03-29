@@ -27,6 +27,7 @@ class ShellRelay:
 
         buffered: list[str] = []
         node_id = None
+        registry_key = None
         shell_id = None
         shell_listener = None
 
@@ -35,13 +36,13 @@ class ShellRelay:
                 raw = await browser_ws.receive_text()
 
                 # Already connected — forward directly over the node WS tunnel
-                if shell_id and node_id:
+                if shell_id and node_id and registry_key:
                     message, _request_id = create_request(
                         node_id,
                         NODE_ACTIONS["SHELL_MESSAGE"],
                         {"shellId": shell_id, "raw": raw},
                     )
-                    sent = await self.node_ws_server.send_to_node(node_id, message)
+                    sent = await self.node_ws_server.send_to_node(registry_key, message)
                     if not sent:
                         break
                     continue
@@ -78,7 +79,8 @@ class ShellRelay:
                     return
 
                 buffered.append(raw)
-                node_id = target_node_id
+                node_id = node["nodeId"]
+                registry_key = node["registryKey"]
 
                 open_message, shell_id = create_request(
                     node_id,
@@ -110,13 +112,13 @@ class ShellRelay:
                     asyncio.create_task(_forward_shell_event(msg))
 
                 shell_listener = _listener
-                self.node_ws_server.add_message_listener(node_id, shell_listener)
+                self.node_ws_server.add_message_listener(registry_key, shell_listener)
 
                 try:
-                    await self.node_ws_server.send_request(node_id, open_message, timeout_ms=15000)
+                    await self.node_ws_server.send_request(registry_key, open_message, timeout_ms=15000)
                 except Exception as e:
                     if shell_listener:
-                        self.node_ws_server.remove_message_listener(node_id, shell_listener)
+                        self.node_ws_server.remove_message_listener(registry_key, shell_listener)
                         shell_listener = None
                     await browser_ws.send_json({
                         "type": "output",
@@ -132,15 +134,15 @@ class ShellRelay:
         except Exception as e:
             print(f"[Main] Shell relay error: {e}")
         finally:
-            if node_id and shell_listener:
-                self.node_ws_server.remove_message_listener(node_id, shell_listener)
-            if node_id and shell_id:
+            if registry_key and shell_listener:
+                self.node_ws_server.remove_message_listener(registry_key, shell_listener)
+            if registry_key and node_id and shell_id:
                 close_message, _request_id = create_request(
                     node_id,
                     NODE_ACTIONS["SHELL_CLOSE"],
                     {"shellId": shell_id},
                 )
                 try:
-                    await self.node_ws_server.send_to_node(node_id, close_message)
+                    await self.node_ws_server.send_to_node(registry_key, close_message)
                 except Exception:
                     pass

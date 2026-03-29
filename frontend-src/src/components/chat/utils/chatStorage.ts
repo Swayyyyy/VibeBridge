@@ -1,4 +1,5 @@
 import type { ClaudeSettings } from '../types/types';
+import { listCurrentUserStorageKeys } from '../../../utils/userScopedStorage';
 
 export const CLAUDE_SETTINGS_KEY = 'claude-settings';
 
@@ -22,7 +23,7 @@ export const safeLocalStorage = {
       if (error?.name === 'QuotaExceededError') {
         console.warn('localStorage quota exceeded, clearing old data');
 
-        const keys = Object.keys(localStorage);
+        const keys = listCurrentUserStorageKeys(localStorage);
         const chatKeys = keys.filter((k) => k.startsWith('chat_messages_')).sort();
 
         if (chatKeys.length > 3) {

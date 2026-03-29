@@ -30,6 +30,7 @@ class NodeWsServer:
         await ws.accept()
         registered = False
         node_id = None
+        registry_key = None
 
         async def _send(msg: dict):
             try:
@@ -72,14 +73,14 @@ class NodeWsServer:
                         await ws.close(4003, "Invalid token")
                         break
 
-                    node_id = msg.get("nodeId")
-                    if not node_id:
+                    requested_node_id = msg.get("nodeId")
+                    if not requested_node_id:
                         await _send(create_message(MESSAGE_TYPES["ERROR"], None, {"error": "Missing nodeId"}))
                         await ws.close(4002, "Missing nodeId")
                         break
 
-                    self.registry.register(node_id, ws, {
-                        "displayName": payload.get("nodeName") or node_id,
+                    record = self.registry.register(requested_node_id, ws, {
+                        "displayName": payload.get("nodeName") or requested_node_id,
                         "version": payload.get("version"),
                         "capabilities": payload.get("capabilities"),
                         "labels": payload.get("labels"),
@@ -92,6 +93,8 @@ class NodeWsServer:
                         "ownerUsername": owner.get("username") if isinstance(owner, dict) else None,
                         "ownerRole": owner.get("role", "user") if isinstance(owner, dict) else "admin",
                     })
+                    node_id = record["nodeId"]
+                    registry_key = record["registryKey"]
 
                     registered = True
                     register_event.set()
@@ -102,39 +105,40 @@ class NodeWsServer:
 
                 # Registered — handle messages
                 if msg["type"] == MESSAGE_TYPES["HEARTBEAT"]:
-                    self.registry.update_heartbeat(node_id)
+                    self.registry.update_heartbeat(registry_key)
                 elif msg["type"] in (MESSAGE_TYPES["RESPONSE"], MESSAGE_TYPES["EVENT"]):
-                    self._notify_listeners(node_id, msg)
+                    self._notify_listeners(registry_key, msg)
 
         except WebSocketDisconnect:
             pass
         except Exception as e:
             print(f"[Main] Node WS error{f' ({node_id})' if node_id else ''}: {e}")
         finally:
-            if node_id:
-                current = self.registry.get_node(node_id)
+            if registry_key:
+                current = self.registry.get_node(registry_key)
                 if current and current.get("ws") is ws:
                     print(f"[Main] Node disconnected: {node_id}")
-                    self.registry.unregister(node_id)
-                    self._notify_listeners(node_id, {
+                    self.registry.unregister(registry_key)
+                    self._notify_listeners(registry_key, {
                         "type": "node_disconnected",
                         "nodeId": node_id,
                     })
 
     def register_outbound(self, node_id: str, ws, info: dict):
         """Register an outbound (Main-initiated) WebSocket connection."""
-        self.registry.register(node_id, ws, info)
+        record = self.registry.register(node_id, ws, info)
         print(f"[Main] Node registered (outbound): {node_id}")
+        return record
 
-    async def send_to_node(self, node_id: str, message: dict) -> bool:
+    async def send_to_node(self, registry_key: str, message: dict) -> bool:
         """Send a message to a specific node."""
-        record = self.registry.get_node(node_id)
+        record = self.registry.get_node(registry_key)
         ws = record.get("ws") if record else None
         if not self.registry._is_ws_usable(ws):
             if self._outbound_connector:
-                reconnected = await self._outbound_connector.ensure_connection(node_id)
+                reconnected = await self._outbound_connector.ensure_connection(registry_key)
                 if reconnected:
-                    record = self.registry.get_node(node_id)
+                    record = self.registry.get_node(registry_key)
                     ws = record.get("ws") if record else None
             if not self.registry._is_ws_usable(ws):
                 return False
@@ -143,9 +147,9 @@ class NodeWsServer:
             return True
         except Exception:
             if self._outbound_connector:
-                reconnected = await self._outbound_connector.ensure_connection(node_id)
+                reconnected = await self._outbound_connector.ensure_connection(registry_key)
                 if reconnected:
-                    record = self.registry.get_node(node_id)
+                    record = self.registry.get_node(registry_key)
                     ws = record.get("ws") if record else None
                     if self.registry._is_ws_usable(ws):
                         try:
@@ -155,7 +159,7 @@ class NodeWsServer:
                             return False
             return False
 
-    async def send_request(self, node_id: str, message: dict, timeout_ms: int = 30000) -> dict:
+    async def send_request(self, registry_key: str, message: dict, timeout_ms: int = 30000) -> dict:
         """Send a request and wait for response."""
         request_id = message.get("requestId")
         if not request_id:
@@ -168,29 +172,29 @@ class NodeWsServer:
                 if not future.done():
                     future.set_result(msg)
 
-        self.add_message_listener(node_id, listener)
+        self.add_message_listener(registry_key, listener)
         try:
-            sent = await self.send_to_node(node_id, message)
+            sent = await self.send_to_node(registry_key, message)
             if not sent:
-                raise ConnectionError(f"Node {node_id} is not connected")
+                raise ConnectionError("Node is not connected")
             return await asyncio.wait_for(future, timeout=timeout_ms / 1000)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Request {request_id} timed out")
         finally:
-            self.remove_message_listener(node_id, listener)
+            self.remove_message_listener(registry_key, listener)
 
-    def add_message_listener(self, node_id: str, listener: Callable):
-        if node_id not in self._message_listeners:
-            self._message_listeners[node_id] = set()
-        self._message_listeners[node_id].add(listener)
+    def add_message_listener(self, registry_key: str, listener: Callable):
+        if registry_key not in self._message_listeners:
+            self._message_listeners[registry_key] = set()
+        self._message_listeners[registry_key].add(listener)
 
-    def remove_message_listener(self, node_id: str, listener: Callable):
-        listeners = self._message_listeners.get(node_id)
+    def remove_message_listener(self, registry_key: str, listener: Callable):
+        listeners = self._message_listeners.get(registry_key)
         if listeners:
             listeners.discard(listener)
 
-    def _notify_listeners(self, node_id: str, msg: dict):
-        listeners = self._message_listeners.get(node_id)
+    def _notify_listeners(self, registry_key: str, msg: dict):
+        listeners = self._message_listeners.get(registry_key)
         if listeners:
             for listener in list(listeners):
                 try:

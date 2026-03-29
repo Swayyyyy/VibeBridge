@@ -20,6 +20,11 @@ class NodeRegistry:
         self._health_task: asyncio.Task | None = None
 
     @staticmethod
+    def make_registry_key(node_id: str, owner_user_id: int | None) -> str:
+        owner_segment = str(owner_user_id) if owner_user_id is not None else "legacy"
+        return f"{owner_segment}::{node_id}"
+
+    @staticmethod
     def _is_ws_usable(ws) -> bool:
         if ws is None:
             return False
@@ -74,7 +79,8 @@ class NodeRegistry:
 
     def register(self, node_id: str, ws, info: dict | None = None) -> dict:
         info = info or {}
-        existing = self.nodes.get(node_id)
+        registry_key = self.make_registry_key(node_id, info.get("ownerUserId"))
+        existing = self.nodes.get(registry_key)
 
         # Close old WS if replaced
         if existing and existing.get("ws") and existing["ws"] is not ws:
@@ -85,6 +91,7 @@ class NodeRegistry:
 
         now = time.time()
         record = {
+            "registryKey": registry_key,
             "nodeId": node_id,
             "displayName": info.get("displayName") or info.get("nodeName") or node_id,
             "ownerUserId": info.get("ownerUserId"),
@@ -103,17 +110,17 @@ class NodeRegistry:
             "lastSeenAt": now,
             "ws": ws,
         }
-        self.nodes[node_id] = record
+        self.nodes[registry_key] = record
         return record
 
-    def unregister(self, node_id: str):
-        record = self.nodes.get(node_id)
+    def unregister(self, registry_key: str):
+        record = self.nodes.get(registry_key)
         if record:
             record["status"] = NODE_STATUS_OFFLINE
             record["ws"] = None
 
-    def remove(self, node_id: str) -> dict | None:
-        record = self.nodes.pop(node_id, None)
+    def remove(self, registry_key: str) -> dict | None:
+        record = self.nodes.pop(registry_key, None)
         if record and record.get("ws"):
             try:
                 asyncio.create_task(record["ws"].close(1000, "Removed from registry"))
@@ -122,15 +129,13 @@ class NodeRegistry:
             record["ws"] = None
         return record
 
-    def get_node(self, node_id: str) -> dict | None:
-        return self.nodes.get(node_id)
+    def get_node(self, registry_key: str) -> dict | None:
+        return self.nodes.get(registry_key)
 
     @staticmethod
     def _can_user_access_node(user: dict | None, record: dict) -> bool:
         if user is None:
             return False
-        if user.get("role") in {"creator", "admin"}:
-            return True
         owner_user_id = record.get("ownerUserId")
         resolved_user_id = user.get("id", user.get("userId"))
         return owner_user_id is not None and owner_user_id == resolved_user_id
@@ -161,14 +166,14 @@ class NodeRegistry:
             })
         return result
 
-    def update_heartbeat(self, node_id: str):
-        record = self.nodes.get(node_id)
+    def update_heartbeat(self, registry_key: str):
+        record = self.nodes.get(registry_key)
         if record:
             record["lastSeenAt"] = time.time()
             record["status"] = NODE_STATUS_ONLINE
 
-    def is_online(self, node_id: str) -> bool:
-        record = self.nodes.get(node_id)
+    def is_online(self, registry_key: str) -> bool:
+        record = self.nodes.get(registry_key)
         if not record:
             return False
         status = self._effective_status(record)
@@ -177,15 +182,16 @@ class NodeRegistry:
         return status == NODE_STATUS_ONLINE
 
     def get_node_for_user(self, node_id: str, user: dict | None) -> dict | None:
-        record = self.nodes.get(node_id)
-        if not record:
-            return None
-        if not self._can_user_access_node(user, record):
-            return None
-        return record
+        for record in self.nodes.values():
+            if record.get("nodeId") != node_id:
+                continue
+            if not self._can_user_access_node(user, record):
+                continue
+            return record
+        return None
 
-    def get_node_address(self, node_id: str) -> dict | None:
-        record = self.nodes.get(node_id)
+    def get_node_address(self, registry_key: str) -> dict | None:
+        record = self.nodes.get(registry_key)
         if not record:
             return None
 

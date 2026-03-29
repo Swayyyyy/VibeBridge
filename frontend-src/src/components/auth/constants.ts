@@ -1,4 +1,5 @@
 export const AUTH_TOKEN_STORAGE_KEY = 'auth-token';
+export const AUTH_USER_ID_STORAGE_KEY = 'auth-user-id';
 
 export const AUTH_ERROR_MESSAGES = {
   authStatusCheckFailed: 'Failed to check authentication status',

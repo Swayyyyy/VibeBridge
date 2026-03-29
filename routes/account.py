@@ -90,3 +90,28 @@ async def admin_rotate_node_register_token(user_id: int, request: Request, _=Dep
         raise HTTPException(404, "User not found")
     token = user_db.rotate_node_register_token(user_id)
     return {"success": True, "nodeRegisterToken": token}
+
+
+@admin_router.delete("/users/{user_id}")
+async def delete_user(user_id: int, request: Request, _=Depends(authenticate_token)):
+    current_user = require_staff(request)
+    target = user_db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    if current_user.get("id") == user_id:
+        raise HTTPException(400, "You cannot delete your own account")
+
+    current_role = current_user.get("role")
+    target_role = target.get("role")
+
+    if current_role == "admin":
+        if target_role != "user":
+            raise HTTPException(403, "Admins can only delete normal users")
+    elif current_role != "creator":
+        raise HTTPException(403, "Staff access required")
+
+    success = user_db.delete_user(user_id)
+    if not success:
+        raise HTTPException(404, "User not found")
+    return {"success": True, "userId": user_id}

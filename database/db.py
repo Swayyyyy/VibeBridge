@@ -3,6 +3,7 @@ import os
 import sqlite3
 import secrets
 import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -86,6 +87,27 @@ def _run_migrations():
         UNIQUE(session_id, provider)
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_session_names_lookup ON session_names(session_id, provider)")
+    db.execute("""CREATE TABLE IF NOT EXISTS user_session_names (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        session_id TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'claude',
+        custom_name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, session_id, provider)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_user_session_names_lookup ON user_session_names(user_id, session_id, provider)")
+    db.execute("""CREATE TABLE IF NOT EXISTS user_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        setting_key TEXT NOT NULL,
+        setting_value TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, setting_key)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_user_settings_lookup ON user_settings(user_id, setting_key)")
 
     db.execute("UPDATE users SET role = 'pending' WHERE role IS NULL OR TRIM(role) = ''")
     db.execute(
@@ -181,6 +203,7 @@ class UserDb:
             """
             SELECT id, username, role, node_register_token, created_at, last_login, is_active, has_completed_onboarding
             FROM users
+            WHERE is_active = 1
             ORDER BY id ASC
             """
         ).fetchall()
@@ -306,6 +329,36 @@ class UserDb:
         db.commit()
         refreshed = UserDb.get_user_by_id(user_id)
         return refreshed.get("node_register_token") if refreshed else token
+
+    @staticmethod
+    def delete_user(user_id: int) -> bool:
+        existing = db.execute(
+            "SELECT id, username FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not existing:
+            return False
+
+        deleted_username = f"deleted-user-{user_id}-{int(time.time())}"
+        db.execute(
+            """
+            UPDATE users
+            SET username = ?,
+                password_hash = '__deleted_user__',
+                is_active = 0,
+                node_register_token = NULL,
+                git_name = NULL,
+                git_email = NULL
+            WHERE id = ?
+            """,
+            (deleted_username, user_id),
+        )
+        db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM user_credentials WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM user_session_names WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
+        db.commit()
+        return True
 
     @staticmethod
     def update_git_config(user_id: int, git_name: str, git_email: str):
@@ -439,56 +492,116 @@ class CredentialsDb:
 
 class SessionNamesDb:
     @staticmethod
-    def set_name(session_id: str, provider: str, custom_name: str):
-        db.execute("""
-            INSERT INTO session_names (session_id, provider, custom_name)
-            VALUES (?, ?, ?)
-            ON CONFLICT(session_id, provider)
-            DO UPDATE SET custom_name = excluded.custom_name, updated_at = CURRENT_TIMESTAMP
-        """, (session_id, provider, custom_name))
+    def set_name(session_id: str, provider: str, custom_name: str, user_id: int | None = None):
+        if user_id:
+            db.execute("""
+                INSERT INTO user_session_names (user_id, session_id, provider, custom_name)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, session_id, provider)
+                DO UPDATE SET custom_name = excluded.custom_name, updated_at = CURRENT_TIMESTAMP
+            """, (user_id, session_id, provider, custom_name))
+        else:
+            db.execute("""
+                INSERT INTO session_names (session_id, provider, custom_name)
+                VALUES (?, ?, ?)
+                ON CONFLICT(session_id, provider)
+                DO UPDATE SET custom_name = excluded.custom_name, updated_at = CURRENT_TIMESTAMP
+            """, (session_id, provider, custom_name))
         db.commit()
 
     @staticmethod
-    def get_name(session_id: str, provider: str) -> Optional[str]:
-        row = db.execute(
-            "SELECT custom_name FROM session_names WHERE session_id = ? AND provider = ?",
-            (session_id, provider),
-        ).fetchone()
+    def get_name(session_id: str, provider: str, user_id: int | None = None) -> Optional[str]:
+        if user_id:
+            row = db.execute(
+                "SELECT custom_name FROM user_session_names WHERE user_id = ? AND session_id = ? AND provider = ?",
+                (user_id, session_id, provider),
+            ).fetchone()
+        else:
+            row = db.execute(
+                "SELECT custom_name FROM session_names WHERE session_id = ? AND provider = ?",
+                (session_id, provider),
+            ).fetchone()
         return row["custom_name"] if row else None
 
     @staticmethod
-    def get_names(session_ids: list, provider: str) -> dict:
+    def get_names(session_ids: list, provider: str, user_id: int | None = None) -> dict:
         if not session_ids:
             return {}
         placeholders = ",".join("?" for _ in session_ids)
-        rows = db.execute(
-            f"SELECT session_id, custom_name FROM session_names WHERE session_id IN ({placeholders}) AND provider = ?",
-            (*session_ids, provider),
-        ).fetchall()
+        if user_id:
+            rows = db.execute(
+                f"SELECT session_id, custom_name FROM user_session_names WHERE user_id = ? AND session_id IN ({placeholders}) AND provider = ?",
+                (user_id, *session_ids, provider),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                f"SELECT session_id, custom_name FROM session_names WHERE session_id IN ({placeholders}) AND provider = ?",
+                (*session_ids, provider),
+            ).fetchall()
         return {r["session_id"]: r["custom_name"] for r in rows}
 
     @staticmethod
-    def delete_name(session_id: str, provider: str) -> bool:
-        cursor = db.execute(
-            "DELETE FROM session_names WHERE session_id = ? AND provider = ?",
-            (session_id, provider),
-        )
+    def delete_name(session_id: str, provider: str, user_id: int | None = None) -> bool:
+        if user_id:
+            cursor = db.execute(
+                "DELETE FROM user_session_names WHERE user_id = ? AND session_id = ? AND provider = ?",
+                (user_id, session_id, provider),
+            )
+        else:
+            cursor = db.execute(
+                "DELETE FROM session_names WHERE session_id = ? AND provider = ?",
+                (session_id, provider),
+            )
         db.commit()
         return cursor.rowcount > 0
 
 
-def apply_custom_session_names(sessions: list, provider: str):
+def apply_custom_session_names(sessions: list, provider: str, user_id: int | None = None):
     if not sessions:
         return
     try:
         ids = [s["id"] for s in sessions]
-        custom_names = SessionNamesDb.get_names(ids, provider)
+        custom_names = SessionNamesDb.get_names(ids, provider, user_id)
         for session in sessions:
             custom = custom_names.get(session["id"])
             if custom:
                 session["summary"] = custom
     except Exception as e:
         print(f"[DB] Failed to apply custom session names for {provider}: {e}")
+
+
+class UserSettingsDb:
+    @staticmethod
+    def get_settings(user_id: int) -> dict[str, str]:
+        rows = db.execute(
+            "SELECT setting_key, setting_value FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+        return {row["setting_key"]: row["setting_value"] for row in rows}
+
+    @staticmethod
+    def set_settings(user_id: int, settings: dict[str, str | None]) -> None:
+        for key, value in settings.items():
+            normalized_key = str(key or "").strip()
+            if not normalized_key:
+                continue
+            if value is None:
+                db.execute(
+                    "DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?",
+                    (user_id, normalized_key),
+                )
+                continue
+
+            db.execute(
+                """
+                INSERT INTO user_settings (user_id, setting_key, setting_value)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, setting_key)
+                DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP
+                """,
+                (user_id, normalized_key, str(value)),
+            )
+        db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -552,5 +665,6 @@ user_db = UserDb()
 api_keys_db = ApiKeysDb()
 credentials_db = CredentialsDb()
 session_names_db = SessionNamesDb()
+user_settings_db = UserSettingsDb()
 app_config_db = AppConfigDb()
 github_tokens_db = GithubTokensDb()

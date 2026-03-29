@@ -153,11 +153,12 @@
     "copy": "复制",
     "rotate": "轮换令牌",
     "approve": "批准",
+    "delete": "删除",
     "actions": "操作",
     "userAdminTitle": "用户管理",
     "userAdminDescription": "用户管理",
-    "creatorDescription": "创建者可以批准用户、提升管理员并重置用户节点令牌。",
-    "adminDescription": "管理员可以批准待审核用户，但不能修改角色。",
+    "creatorDescription": "创建者可以管理角色，并删除除自己以外的任意用户。",
+    "adminDescription": "管理员可以批准待审核用户，并删除普通用户。",
     "pendingNotice": "您的账户正在等待管理员或创建者批准。"
   },
   "mcpForm": {
@@ -220,7 +221,7 @@
   },
   "git": {
     "title": "Git 配置",
-    "description": "配置您的 git 提交身份。这些设置将通过 git config --global 全局应用",
+    "description": "配置您的 git 提交身份。这些值只会保存到当前 VibeBridge 账号。",
     "name": {
       "label": "Git 名称",
       "help": "您的 git 提交名称"

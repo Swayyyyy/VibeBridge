@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../../shared/view/ui';
 import { authenticatedFetch } from '../../../../utils/api';
+import { copyTextToClipboard } from '../../../../utils/clipboard';
 
 type AccountProfile = {
   id: number;
@@ -14,7 +15,6 @@ type ManagedUser = {
   id: number;
   username: string;
   role: 'creator' | 'admin' | 'user' | 'pending';
-  node_register_token?: string | null;
 };
 
 export default function AccountSettingsTab() {
@@ -62,10 +62,10 @@ export default function AccountSettingsTab() {
     if (!token) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(token);
-    } catch {
-      window.prompt('Copy token', token);
+
+    const copied = await copyTextToClipboard(token);
+    if (!copied) {
+      setError('Failed to copy token');
     }
   }, []);
 
@@ -107,25 +107,6 @@ export default function AccountSettingsTab() {
     }
   }, [load]);
 
-  const rotateUserToken = useCallback(async (userId: number) => {
-    setBusyKey(`token-${userId}`);
-    setError(null);
-    try {
-      const response = await authenticatedFetch(`/api/admin/users/${userId}/node-register-token/rotate`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail || 'Failed to rotate user token');
-      }
-      await load();
-    } catch (rotateError) {
-      setError(rotateError instanceof Error ? rotateError.message : 'Failed to rotate user token');
-    } finally {
-      setBusyKey(null);
-    }
-  }, [load]);
-
   const approveUser = useCallback(async (userId: number) => {
     setBusyKey(`approve-${userId}`);
     setError(null);
@@ -144,6 +125,41 @@ export default function AccountSettingsTab() {
       setBusyKey(null);
     }
   }, [load]);
+
+  const deleteUser = useCallback(async (userId: number) => {
+    setBusyKey(`delete-${userId}`);
+    setError(null);
+    try {
+      const response = await authenticatedFetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Failed to delete user');
+      }
+      await load();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete user');
+    } finally {
+      setBusyKey(null);
+    }
+  }, [load]);
+
+  const canDeleteUser = useCallback((user: ManagedUser) => {
+    if (!profile) {
+      return false;
+    }
+    if (user.id === profile.id) {
+      return false;
+    }
+    if (profile.role === 'creator') {
+      return true;
+    }
+    if (profile.role === 'admin') {
+      return user.role === 'user';
+    }
+    return false;
+  }, [profile]);
 
   return (
     <div className="space-y-6">
@@ -220,8 +236,8 @@ export default function AccountSettingsTab() {
             </h3>
             <p className="text-sm text-muted-foreground">
               {profile.role === 'creator'
-                ? t('accountSettings.creatorDescription', { defaultValue: 'Creators can approve users, promote admins, and rotate user node tokens.' })
-                : t('accountSettings.adminDescription', { defaultValue: 'Admins can approve pending users, but cannot change roles.' })}
+                ? t('accountSettings.creatorDescription', { defaultValue: 'Creators can manage roles and delete any other user.' })
+                : t('accountSettings.adminDescription', { defaultValue: 'Admins can approve pending users and delete normal users.' })}
             </p>
           </div>
 
@@ -231,7 +247,6 @@ export default function AccountSettingsTab() {
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4">{t('accountSettings.username', { defaultValue: 'Username' })}</th>
                   <th className="py-2 pr-4">{t('accountSettings.role', { defaultValue: 'Role' })}</th>
-                  <th className="py-2 pr-4">{t('accountSettings.nodeToken', { defaultValue: 'Node Register Token' })}</th>
                   <th className="py-2">{t('accountSettings.actions', { defaultValue: 'Actions' })}</th>
                 </tr>
               </thead>
@@ -251,46 +266,28 @@ export default function AccountSettingsTab() {
                           <option value="user">user</option>
                           <option value="pending">pending</option>
                         </select>
+                      ) : profile.role === 'admin' && user.role === 'pending' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void approveUser(user.id)}
+                          disabled={busyKey === `approve-${user.id}`}
+                        >
+                          {t('accountSettings.approve', { defaultValue: 'Approve' })}
+                        </Button>
                       ) : (
                         <span className="text-sm text-foreground">{user.role}</span>
                       )}
                     </td>
-                    <td className="py-3 pr-4">
-                      <div className="max-w-[360px] break-all font-mono text-xs text-foreground">
-                        {user.node_register_token || '-'}
-                      </div>
-                    </td>
                     <td className="py-3">
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void copyToken(user.node_register_token)}
-                          disabled={!user.node_register_token}
-                        >
-                          {t('accountSettings.copy', { defaultValue: 'Copy' })}
-                        </Button>
-                        {user.role === 'pending' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void approveUser(user.id)}
-                            disabled={busyKey === `approve-${user.id}`}
-                          >
-                            {t('accountSettings.approve', { defaultValue: 'Approve' })}
-                          </Button>
-                        )}
-                        {profile.role === 'creator' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void rotateUserToken(user.id)}
-                            disabled={busyKey === `token-${user.id}`}
-                          >
-                            {t('accountSettings.rotate', { defaultValue: 'Rotate Token' })}
-                          </Button>
-                        )}
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void deleteUser(user.id)}
+                        disabled={!canDeleteUser(user) || busyKey === `delete-${user.id}`}
+                      >
+                        {t('accountSettings.delete', { defaultValue: 'Delete' })}
+                      </Button>
                     </td>
                   </tr>
                 ))}

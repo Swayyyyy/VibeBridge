@@ -120,13 +120,14 @@ async def register_node(request: Request):
         raise HTTPException(400, "port must be an integer") from exc
 
     node_id = body.get("nodeId") or host
-    existing = outbound_connector.connections.get(node_id)
+    connection_key = registry.make_registry_key(node_id, owner.get("id") if owner else None)
+    existing = outbound_connector.connections.get(connection_key)
     is_new_target = not existing or existing.get("host") != host or existing.get("port") != port
     addr = f"{node_id}@{host}:{port}"
     if is_new_target:
         print(f"[Main] Node registered via HTTP callback: {addr}")
     outbound_connector.start(addr, {node_id: token})
-    record = registry.get_node(node_id)
+    record = registry.get_node(connection_key)
     if record:
         record["ownerUserId"] = owner.get("id") if owner else None
         record["ownerUsername"] = owner.get("username") if owner else None
@@ -181,7 +182,7 @@ _RESPONSE_HOP_BY_HOP_HEADERS = {
 }
 
 
-async def _proxy_request_via_node_ws(request: Request, node_id: str, decoded: dict) -> Response:
+async def _proxy_request_via_node_ws(request: Request, node: dict, decoded: dict) -> Response:
     body = await request.body()
     fwd_headers = {
         key: value
@@ -195,7 +196,7 @@ async def _proxy_request_via_node_ws(request: Request, node_id: str, decoded: di
         fwd_headers["x-authenticated-role"] = str(decoded["role"])
 
     message, request_id = create_request(
-        node_id,
+        node["nodeId"],
         NODE_ACTIONS["HTTP_PROXY"],
         {
             "method": request.method,
@@ -208,10 +209,10 @@ async def _proxy_request_via_node_ws(request: Request, node_id: str, decoded: di
     )
 
     try:
-        response_msg = await node_ws_server.send_request(node_id, message, timeout_ms=120000)
+        response_msg = await node_ws_server.send_request(node["registryKey"], message, timeout_ms=120000)
     except TimeoutError:
         return Response(
-            content=json.dumps({"detail": f"Request to node {node_id} timed out"}),
+            content=json.dumps({"detail": f"Request to node {node['nodeId']} timed out"}),
             status_code=504,
             media_type="application/json",
         )
@@ -297,7 +298,7 @@ async def proxy_middleware(request: Request, call_next):
     node = registry.get_node_for_user(node_id, current_user)
     if not node:
         return Response(content=f'{{"detail":"Node {node_id} unavailable"}}', status_code=503, media_type="application/json")
-    return await _proxy_request_via_node_ws(request, node_id, decoded)
+    return await _proxy_request_via_node_ws(request, node, decoded)
 
 
 # ---------------------------------------------------------------------------

@@ -115,7 +115,7 @@ async def rename_session(session_id: str, request: Request, _=Depends(authentica
         raise HTTPException(400, "Summary must not exceed 500 characters")
     if provider not in VALID_PROVIDERS:
         raise HTTPException(400, f"Provider must be one of: {', '.join(VALID_PROVIDERS)}")
-    session_names_db.set_name(safe_id, provider, summary)
+    session_names_db.set_name(safe_id, provider, summary, request.state.user["id"])
     if provider == "codex":
         try:
             from utils.codex_session_index import sync_codex_session_index_entry

@@ -66,6 +66,33 @@ CREATE TABLE IF NOT EXISTS session_names (
 
 CREATE INDEX IF NOT EXISTS idx_session_names_lookup ON session_names(session_id, provider);
 
+CREATE TABLE IF NOT EXISTS user_session_names (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_id TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'claude',
+    custom_name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, session_id, provider),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_session_names_lookup ON user_session_names(user_id, session_id, provider);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    setting_key TEXT NOT NULL,
+    setting_value TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, setting_key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_lookup ON user_settings(user_id, setting_key);
+
 -- App configuration table (auto-generated secrets, settings, etc.)
 CREATE TABLE IF NOT EXISTS app_config (
     key TEXT PRIMARY KEY,

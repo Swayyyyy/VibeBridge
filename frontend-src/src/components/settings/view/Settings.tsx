@@ -1,9 +1,6 @@
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import ProviderLoginModal from '../../provider-auth/view/ProviderLoginModal';
 import { Button } from '../../../shared/view/ui';
-import ClaudeMcpFormModal from '../view/modals/ClaudeMcpFormModal';
-import CodexMcpFormModal from '../view/modals/CodexMcpFormModal';
 import SettingsSidebar from '../view/SettingsSidebar';
 import AccountSettingsTab from '../view/tabs/AccountSettingsTab';
 import AgentsSettingsTab from '../view/tabs/agents-settings/AgentsSettingsTab';
@@ -18,7 +15,6 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
     activeTab,
     setActiveTab,
     saveStatus,
-    deleteError,
     projectSortOrder,
     setProjectSortOrder,
     codeEditorSettings,
@@ -31,33 +27,6 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
     setCodexAccountSettings,
     codexPermissionMode,
     setCodexPermissionMode,
-    mcpServers,
-    codexMcpServers,
-    mcpTestResults,
-    mcpServerTools,
-    mcpToolsLoading,
-    showMcpForm,
-    editingMcpServer,
-    openMcpForm,
-    closeMcpForm,
-    submitMcpForm,
-    handleMcpDelete,
-    handleMcpTest,
-    handleMcpToolsDiscovery,
-    showCodexMcpForm,
-    editingCodexMcpServer,
-    openCodexMcpForm,
-    closeCodexMcpForm,
-    submitCodexMcpForm,
-    handleCodexMcpDelete,
-    claudeAuthStatus,
-    codexAuthStatus,
-    openLoginForProvider,
-    showLoginModal,
-    setShowLoginModal,
-    loginProvider,
-    selectedProject,
-    handleLoginComplete,
   } = useSettingsController({
     isOpen,
     initialTab,
@@ -68,17 +37,6 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
   if (!isOpen) {
     return null;
   }
-
-  const isAuthenticated = loginProvider === 'codex'
-    ? codexAuthStatus.authenticated
-    : loginProvider === 'claude'
-      ? claudeAuthStatus.authenticated
-      : false;
-  const loginCommand = loginProvider === 'codex'
-    ? codexAccountSettings.command
-    : loginProvider === 'claude'
-      ? claudeAccountSettings.command
-      : '';
 
   return (
     <div className="modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm md:p-4">
@@ -127,10 +85,6 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
 
               {activeTab === 'agents' && (
                 <AgentsSettingsTab
-                  claudeAuthStatus={claudeAuthStatus}
-                  codexAuthStatus={codexAuthStatus}
-                  onClaudeLogin={() => openLoginForProvider('claude')}
-                  onCodexLogin={() => openLoginForProvider('codex')}
                   claudeAccountSettings={claudeAccountSettings}
                   onClaudeAccountSettingsChange={setClaudeAccountSettings}
                   claudePermissions={claudePermissions}
@@ -139,50 +93,12 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
                   onCodexAccountSettingsChange={setCodexAccountSettings}
                   codexPermissionMode={codexPermissionMode}
                   onCodexPermissionModeChange={setCodexPermissionMode}
-                  mcpServers={mcpServers}
-                  codexMcpServers={codexMcpServers}
-                  mcpTestResults={mcpTestResults}
-                  mcpServerTools={mcpServerTools}
-                  mcpToolsLoading={mcpToolsLoading}
-                  onOpenMcpForm={openMcpForm}
-                  onDeleteMcpServer={handleMcpDelete}
-                  onTestMcpServer={handleMcpTest}
-                  onDiscoverMcpTools={handleMcpToolsDiscovery}
-                  onOpenCodexMcpForm={openCodexMcpForm}
-                  onDeleteCodexMcpServer={handleCodexMcpDelete}
-                  deleteError={deleteError}
                 />
               )}
             </div>
           </main>
         </div>
       </div>
-
-      <ProviderLoginModal
-        key={loginProvider || 'claude'}
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        provider={loginProvider || 'claude'}
-        project={selectedProject}
-        onComplete={handleLoginComplete}
-        isAuthenticated={isAuthenticated}
-        customCommand={loginCommand || undefined}
-      />
-
-      <ClaudeMcpFormModal
-        isOpen={showMcpForm}
-        editingServer={editingMcpServer}
-        projects={projects}
-        onClose={closeMcpForm}
-        onSubmit={submitMcpForm}
-      />
-
-      <CodexMcpFormModal
-        isOpen={showCodexMcpForm}
-        editingServer={editingCodexMcpServer}
-        onClose={closeCodexMcpForm}
-        onSubmit={submitCodexMcpForm}
-      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Check, GitBranch, LogIn } from 'lucide-react';
+import { Check, GitBranch } from 'lucide-react';
 
 type OnboardingStepProgressProps = {
   currentStep: number;
@@ -6,7 +6,6 @@ type OnboardingStepProgressProps = {
 
 const onboardingSteps = [
   { title: 'Git Configuration', icon: GitBranch, required: true },
-  { title: 'Connect Agents', icon: LogIn, required: false },
 ];
 
 export default function OnboardingStepProgress({ currentStep }: OnboardingStepProgressProps) {

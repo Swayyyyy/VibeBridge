@@ -3,7 +3,7 @@ import { cn } from '../../../../../../lib/utils';
 import type { AgentCategory } from '../../../../types/types';
 import type { AgentCategoryTabsSectionProps } from '../types';
 
-const AGENT_CATEGORIES: AgentCategory[] = ['account', 'permissions', 'mcp'];
+const AGENT_CATEGORIES: AgentCategory[] = ['account', 'permissions'];
 
 export default function AgentCategoryTabsSection({
   selectedCategory,
@@ -29,7 +29,6 @@ export default function AgentCategoryTabsSection({
           >
             {category === 'account' && t('tabs.account')}
             {category === 'permissions' && t('tabs.permissions')}
-            {category === 'mcp' && t('tabs.mcpServers')}
           </button>
         ))}
       </div>

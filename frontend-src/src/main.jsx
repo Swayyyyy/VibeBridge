@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import 'katex/dist/katex.min.css'
+import { installUserScopedStorage } from './utils/userScopedStorage'
+
+installUserScopedStorage()
 
 // Initialize i18n
 import './i18n/config.js'

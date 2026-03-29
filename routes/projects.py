@@ -148,6 +148,7 @@ async def create_project(request: Request, _=Depends(authenticate_token)):
 
 @router.get("/{project_name}/sessions")
 async def list_sessions(
+    request: Request,
     project_name: str,
     limit: int = 5,
     offset: int = 0,
@@ -162,7 +163,7 @@ async def list_sessions(
             project_path = projectPath or await extract_project_directory(project_name)
             all_sessions = await get_codex_sessions(project_path, 0)
             paginated_sessions = all_sessions[offset: offset + limit]
-            apply_custom_session_names(paginated_sessions, "codex")
+            apply_custom_session_names(paginated_sessions, "codex", request.state.user["id"])
             result = {
                 "sessions": paginated_sessions,
                 "hasMore": (offset + len(paginated_sessions)) < len(all_sessions),
@@ -172,7 +173,7 @@ async def list_sessions(
             }
         else:
             result = await get_sessions(project_name, limit, offset)
-            apply_custom_session_names(result.get("sessions", []), "claude")
+            apply_custom_session_names(result.get("sessions", []), "claude", request.state.user["id"])
         return result
     except Exception as e:
         raise HTTPException(500, str(e))
@@ -208,11 +209,11 @@ async def rename_project_endpoint(project_name: str, request: Request, _=Depends
 
 
 @router.delete("/{project_name}/sessions/{session_id}")
-async def delete_session_endpoint(project_name: str, session_id: str, _=Depends(authenticate_token)):
+async def delete_session_endpoint(project_name: str, session_id: str, user=Depends(authenticate_token)):
     from projects import delete_session
     try:
         await delete_session(project_name, session_id)
-        session_names_db.delete_name(session_id, "claude")
+        session_names_db.delete_name(session_id, "claude", user.get("id") if isinstance(user, dict) else None)
         return {"success": True}
     except Exception as e:
         raise HTTPException(500, str(e))

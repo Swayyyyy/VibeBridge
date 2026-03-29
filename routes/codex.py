@@ -80,14 +80,14 @@ async def get_config():
 # ---------------------------------------------------------------------------
 
 @router.get("/sessions")
-async def get_sessions(projectPath: str = "", limit: int = 5, _=Depends(authenticate_token)):
+async def get_sessions(projectPath: str = "", limit: int = 5, user=Depends(authenticate_token)):
     if not projectPath:
         raise HTTPException(400, "projectPath query parameter required")
     from projects import get_codex_sessions
 
     try:
         sessions = await get_codex_sessions(projectPath, limit)
-        apply_custom_session_names(sessions, "codex")
+        apply_custom_session_names(sessions, "codex", user.get("id") if isinstance(user, dict) else None)
         return {"success": True, "sessions": sessions}
     except Exception as e:
         raise HTTPException(500, str(e))
@@ -112,12 +112,12 @@ async def get_session_messages(
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str, _=Depends(authenticate_token)):
+async def delete_session(session_id: str, user=Depends(authenticate_token)):
     from projects import delete_codex_session
 
     try:
         await delete_codex_session(session_id)
-        session_names_db.delete_name(session_id, "codex")
+        session_names_db.delete_name(session_id, "codex", user.get("id") if isinstance(user, dict) else None)
         return {"success": True}
     except Exception as e:
         raise HTTPException(500, str(e))

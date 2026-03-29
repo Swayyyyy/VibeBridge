@@ -43,7 +43,7 @@ export default function GitConfigurationStep({
             required
             disabled={isSubmitting}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Saved as `git config --global user.name`.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Saved for your current VibeBridge account.</p>
         </div>
 
         <div>
@@ -61,7 +61,7 @@ export default function GitConfigurationStep({
             required
             disabled={isSubmitting}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Saved as `git config --global user.email`.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Saved for your current VibeBridge account.</p>
         </div>
       </div>
     </div>

@@ -16,9 +16,9 @@ def create_browser_gateway(registry, node_ws_server) -> APIRouter:
         node = registry.get_node_for_user(node_id, user)
         if not node:
             raise HTTPException(404, f"Node {node_id} not found")
-        message, request_id = create_request(node_id, action, params)
+        message, request_id = create_request(node["nodeId"], action, params)
         try:
-            response = await node_ws_server.send_request(node_id, message, timeout_ms)
+            response = await node_ws_server.send_request(node["registryKey"], message, timeout_ms)
             return response.get("payload", {}).get("data")
         except TimeoutError:
             raise HTTPException(504, f"Request to node {node_id} timed out")
@@ -34,7 +34,7 @@ def create_browser_gateway(registry, node_ws_server) -> APIRouter:
         node = registry.get_node_for_user(node_id, request.state.user)
         if not node:
             raise HTTPException(404, "Node not found")
-        info = {k: v for k, v in node.items() if k != "ws"}
+        info = {k: v for k, v in node.items() if k not in {"ws", "registryKey"}}
         return info
 
     @router.delete("/{node_id}")
@@ -45,7 +45,7 @@ def create_browser_gateway(registry, node_ws_server) -> APIRouter:
         if node.get("status") == "online":
             raise HTTPException(409, "Online nodes cannot be deleted")
 
-        registry.remove(node_id)
+        registry.remove(node["registryKey"])
         return {"success": True, "nodeId": node_id}
 
     @router.get("/{node_id}/projects")

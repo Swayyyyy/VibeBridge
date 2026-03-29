@@ -153,11 +153,12 @@
     "copy": "Copy",
     "rotate": "Rotate Token",
     "approve": "Approve",
+    "delete": "Delete",
     "actions": "Actions",
     "userAdminTitle": "User Management",
     "userAdminDescription": "User management",
-    "creatorDescription": "Creators can approve users, promote admins, and rotate user node tokens.",
-    "adminDescription": "Admins can approve pending users, but cannot change roles.",
+    "creatorDescription": "Creators can manage roles and delete any other user.",
+    "adminDescription": "Admins can approve pending users and delete normal users.",
     "pendingNotice": "Your account is waiting for approval from an admin or the creator."
   },
   "mcpForm": {
@@ -220,7 +221,7 @@
   },
   "git": {
     "title": "Git Configuration",
-    "description": "Configure your git identity for commits. These settings will be applied globally via git config --global",
+    "description": "Configure your git identity for commits. These values are stored for the current VibeBridge account.",
     "name": {
       "label": "Git Name",
       "help": "Your name for git commits"
