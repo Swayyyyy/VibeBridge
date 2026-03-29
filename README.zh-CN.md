@@ -54,6 +54,13 @@ VibeBridge 不会把底层事件原样摊在主消息流里，而是尽量让界
 
 ## 快速开始
 
+如果你是通过 `Claude Code` 或 `Codex` 来部署，推荐直接让它调用仓库里的 skill 自动操作，而不是手动一步步敲命令：
+
+- Main: `skills/vibebridge-main-install`
+- Node: `skills/vibebridge-node-install`
+
+这两套 skill 会先确认部署目标是当前机器还是 SSH 连接后的远端机器，再继续询问必要配置并执行安装。
+
 ### 1. 安装后端依赖
 
 ```bash

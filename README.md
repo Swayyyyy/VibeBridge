@@ -54,6 +54,13 @@ VibeBridge keeps the main message flow answer-first instead of dumping every low
 
 ## Quick Start
 
+If you are deploying through `Claude Code` or `Codex`, the recommended path is to let it use the repository skills instead of typing every step manually:
+
+- Main: `skills/vibebridge-main-install`
+- Node: `skills/vibebridge-node-install`
+
+These skills first confirm whether the target is the current machine or an SSH-connected remote machine, then ask for the required config and carry out the install.
+
 ### 1. Install backend dependencies
 
 ```bash

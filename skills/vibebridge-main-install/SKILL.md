@@ -11,6 +11,8 @@ Use this skill when the task is to install, deploy, or reconfigure the VibeBridg
 
 Before editing `configs/main.toml`, rebuilding the frontend, or starting a long-running process, ask the user for the required deployment values instead of guessing:
 
+- whether the install target is the current machine or a machine reached through SSH
+- if the target is remote, the SSH user, host, port, and whether the SSH session is already open
 - repo path on the target machine
 - whether this must be a fresh isolated environment, and the desired venv path
 - whether this is a new Main instance or a change to an existing one
@@ -35,6 +37,7 @@ If any required values are missing, stop and ask. Do not silently invent public 
 - `jwt_secret` can be omitted. Main will auto-generate and persist one for the installation.
 - The first registered account becomes `creator`; later accounts default to `pending` and need approval.
 - Browser traffic should go to Main only. Nodes are workers and should not be exposed as user-facing web entrypoints.
+- Do not assume local paths apply to a remote machine. If deployment is over SSH, treat the repo path, venv path, logs, and service files as remote paths.
 
 ## Bundled script
 

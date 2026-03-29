@@ -11,6 +11,8 @@ Use this skill when the task is to install, deploy, or reconfigure a VibeBridge 
 
 Before editing `configs/node.toml` or starting a long-running process, ask the user for the required deployment values instead of guessing:
 
+- whether the install target is the current machine or a machine reached through SSH
+- if the target is remote, the SSH user, host, port, and whether the SSH session is already open
 - repo path on the target machine
 - whether a fresh isolated environment is required, and the desired venv path
 - connection mode:
@@ -35,6 +37,7 @@ If any of the required values are missing, stop and ask. Do not silently invent 
 - In HTTP registration mode, Main still needs a reachable callback address. Use `advertise_host` and `advertise_port` when the local listen address is not the right callback address.
 - The browser should connect only to Main, not to the Node.
 - Keep Main and Node on different SQLite files.
+- Do not assume local paths apply to a remote machine. If deployment is over SSH, treat the repo path, venv path, logs, and service files as remote paths.
 
 ## Bundled script
 
